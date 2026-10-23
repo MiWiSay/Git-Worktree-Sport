@@ -64,30 +64,6 @@ Both editors support one-click text export to the clipboard and text import. Tra
 4. Expand a repository and worktree to inspect details. Right-click a worktree to manage it.
 5. To create a worktree, select a branch from the Git Branches popup and choose **Create Worktree...**.
 
-## Build
-
-Target: Android Studio Panda 3 (`AI-262.9437.185.2621.16467767`), JDK 25, Gradle Wrapper 9.7.1. Windows is the verified runtime platform. macOS Android Studio is supported by the IDE, and this plugin uses cross-platform APIs, but macOS runtime testing remains outstanding.
-
-Windows PowerShell:
-
-```powershell
-$env:JAVA_HOME = "C:\Program Files\Android\Android Studio Panda 3\jbr"
-.\gradlew.bat clean buildPlugin verifyPluginProjectConfiguration verifyPluginStructure --no-daemon --console=plain
-```
-
-macOS (default IDE path `/Applications/Android Studio.app/Contents`):
-
-```bash
-export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-./gradlew clean buildPlugin verifyPluginProjectConfiguration verifyPluginStructure --no-daemon --console=plain
-```
-
-Set `-PandroidStudioPath="/path/to/Android Studio.app/Contents"` or `ANDROID_STUDIO_PATH` if the IDE is installed elsewhere. The ZIP is generated in the project-root `outputs/` folder.
-
-## Regression checks
-
-On Windows, run `./tests/run-regression.ps1` to exercise the production localization and grouping code against in-memory IDE service fixtures, plus actual Swing tree/EDT/timer checks. It does not modify installed IDE settings or repositories. `tests/IconSmokeCheck.java` renders the actual SVG resources with the target IDE's SVG loader. The current PowerShell regression harness is Windows-specific; macOS runtime and UI behavior still require testing on a Mac.
-
 ## IDE-aware languages and empty-area creation
 
 UI messages resolve `{ideName}` using the running IDE product name, including legacy user messages containing the former product name. Language packs are configured by JSON, not Java language enums. Upgrades append newly bundled packs without overwriting user translations or renamed language entries.
