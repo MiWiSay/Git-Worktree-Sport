@@ -1,0 +1,92 @@
+# Git Worktree Sport
+
+**语言 / Languages:** [简体中文](README.zh-CN.md) | [English](README.md)
+
+**JetBrains 插件广场：**[Git Worktree Sport](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport) · [GitHub 源码](https://github.com/MiWiSay/Git-Worktree-Sport)
+
+Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android Studio 构建并验证）的免费插件，用于创建和管理 Git 工作区（Git worktree）。它会汇总当前已打开 IDE 项目中的 Git 工作区，并可从分支列表创建新的关联工作区，让你同时处理多个分支，而无需反复切换同一份工作目录。
+
+插件调用 IDE 配置的 Git 可执行程序，并使用 Git 内置的 `worktree` 命令；不需要付费服务，也不含购买流程。
+
+## 功能
+
+### 工作区树
+
+- 汇总当前 IDE 已打开项目中各 Git 仓库的工作区，并按仓库分组。
+- 显示工作区数量和精简状态；展开后可查看工作区类型、裸仓库/锁定状态、分支、完整 HEAD、完整路径和文件夹创建时间。
+- 同名工作区会合并显示，展开后以 HEAD 前 8 位区分；缺失或可清理的路径会标记出来。
+- 双击树节点只展开或折叠。右键详细信息行可仅复制对应值。
+- 展开工作区后可打开工作区项目或文件夹；当前已在 IDE 打开的工作区不重复提供“打开工作区”操作。
+- 刷新只重新读取本地 Git 元数据，不会获取远程分支或连接服务器。
+
+### 从分支创建工作区
+
+在 IDE 的 **Git Branches** 分支弹窗中选择分支，然后点击 **Create Worktree...**。也可以在 Worktree Sport 列表空白处右击，从可搜索的仓库分支列表中选择。创建弹窗会建议目标目录；你可以自行修改或使用浏览按钮选择目录。目标父目录必须已存在，目标目录必须不存在或为空。
+
+支持以下创建方式：
+
+- **现有分支：**直接检出本地分支。选择远程分支时，若有同名本地分支则复用，否则创建跟踪分支。
+- **新建分支：**填写新分支名，并可指定起点分支或提交。
+- **分离 HEAD：**基于指定提交创建不关联分支的工作区。
+- **孤儿分支：**创建不继承提交历史的新分支，具体取决于本机 Git 版本。
+- **不检出文件：**高级选项，只登记工作区而不写出文件；默认关闭，孤儿分支模式下不可用。
+
+创建前会检查分支冲突、失效的 Git 登记、目标路径和非空目录。对于已在其他工作区检出的分支，需要用户明确确认后才会尝试强制创建；Git 仍会判断操作是否可行。插件不会覆盖非空目录。
+
+操作期间弹窗会显示进度并禁用重复提交；成功后提供“打开项目”选项。关闭成功提示时，工作区列表会展开并以蓝色背景高亮新工作区两秒。
+
+### 管理工作区
+
+右击工作区可执行以下操作：
+
+- **打开工作区：**使用 IDE 标准流程打开或导入项目。
+- **打开文件夹：**在系统文件管理器中打开目录。
+- **锁定 / 解锁：**设置或移除 Git 保留标记。锁定不会令文件只读，但可以避免 Git 修剪其登记。
+- **修复：**让 Git 修复工作区与仓库之间的管理链接。
+- **清理：**预览并移除失效工作区的登记信息，不删除仍存在的工作区文件夹。
+- **移动：**调用 Git 移动关联工作区并更新登记。目标路径必须不存在，父目录必须存在。
+- **删除：**通过 Git 移除关联工作区及其登记。如果存在修改或未跟踪文件，会先显示额外警告；只有明确确认后才会强制删除整个目录。
+
+主工作区以及当前 IDE 会话中已作为项目打开的工作区受保护，不提供清理、移动、删除、锁定和解锁操作，底层服务也会再次校验。此保护不依赖分支名，也不会创建 Git 锁。其他已锁定的关联工作区同样不能移动或删除。
+
+### 语言与翻译设置
+
+使用刷新按钮旁的设置按钮，可跟随 IDE 语言或选择插件语言。当前内置语言：**英语、简体中文、繁体中文、日语、韩语、德语、法语、西班牙语、巴西葡萄牙语、俄语**。
+
+翻译编辑器以表格展示内容，key 不可修改、value 可编辑，并支持 `Ctrl+F` 搜索、按 `key=value` 文本导入和导出。导入时会检查重复、未知及缺失 key。可以新增语言、修改语言名，或删除用户新增的语言；取消未保存的编辑可以整体还原本轮更改。
+
+## 安装与使用
+
+1. 在 IDE 中打开 **Settings → Plugins → Install Plugin from Disk...**。
+2. 选择工程输出目录生成的 `outputs/Git Worktree Sport-1.0.1.zip` 并重启 IDE。
+3. 打开 **Git → Worktree Sport → Refresh**，加载已打开项目中的工作区。
+4. 展开仓库和工作区查看详情，右击工作区进行管理。
+5. 创建工作区时，在 Git 分支弹窗选择分支并点击 **Create Worktree...**。
+
+## 构建
+
+本版本构建目标为 Android Studio Panda 3（`AI-262.9437.185.2621.16467767`）、JDK 25 和 Gradle Wrapper 9.7.1。当前已验证 Windows 运行环境；Android Studio 提供 macOS 版本，插件也使用跨平台 API，但本次尚未在 macOS 实机运行验证。
+
+Windows PowerShell：
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio Panda 3\jbr"
+.\gradlew.bat clean buildPlugin verifyPluginProjectConfiguration verifyPluginStructure --no-daemon --console=plain
+```
+
+macOS（默认 IDE 路径为 `/Applications/Android Studio.app/Contents`）：
+
+```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+./gradlew clean buildPlugin verifyPluginProjectConfiguration verifyPluginStructure --no-daemon --console=plain
+```
+
+如果 Android Studio 安装在其他位置，可通过 `-PandroidStudioPath="/path/to/Android Studio.app/Contents"` 或环境变量 `ANDROID_STUDIO_PATH` 指定路径。插件 ZIP 输出到工程根目录的 `outputs/` 文件夹。
+
+运行 `tests/run-regression.ps1` 可执行 Windows 本地回归检查；该 PowerShell 测试脚本目前面向 Windows。当前发行包已在 Windows 上验证；macOS 的插件运行和界面行为仍需在 Mac 上测试。
+
+## 项目链接
+
+- 插件广场：[Git Worktree Sport on JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport)
+- 源码与问题反馈：[GitHub 仓库](https://github.com/MiWiSay/Git-Worktree-Sport)
+- 许可证：[Apache-2.0](https://github.com/MiWiSay/Git-Worktree-Sport/blob/main/LICENSE)

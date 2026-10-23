@@ -1,0 +1,10 @@
+.gradle/
+build/
+.intellijPlatform/
+.idea/
+*.iml
+/outputs/
+
+# Local Codex image-generation and vision workspaces
+/.codex-image-generation/
+/.codex-vision-image/

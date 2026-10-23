@@ -1,0 +1,39 @@
+<p>Create and manage Git worktrees without leaving your IDE. Keep parallel tasks in separate working directories while sharing one Git repository. Git Worktree Sport is free and has no purchase flow.</p>
+<h2>Git Worktree Sport</h2>
+<p><b>One repository. Parallel workspaces.</b> Inspect worktrees across projects open in the IDE, create a workspace from a branch, and manage its lifecycle with explicit safety checks.</p>
+<h3>Get started</h3>
+<ol>
+  <li>Install the plugin and restart the IDE. Open a Git project with the IDE's Git integration enabled.</li>
+  <li>Choose <b>Git &gt; Worktree Sport &gt; Refresh</b> to open the worktree manager.</li>
+  <li>Right-click empty space in the worktree list. Search or scroll through local and remote branches, click a branch, then choose <b>Create Worktree...</b> in its submenu. You can also use this action in the IDE's Git Branches popup.</li>
+  <li>Choose a creation mode, enter a destination or click <b>Browse...</b>, then create. The parent folder must exist; the destination must be absent or empty.</li>
+  <li>After creation, choose <b>Open Project</b> to use the IDE's normal project-opening flow, or close the dialog to reveal the new worktree with a two-second blue background highlight.</li>
+</ol>
+<h3>Choose how to create</h3>
+<ul>
+  <li><b>Existing branch:</b> Check out the selected local branch. Remote selections reuse an existing local branch with the matching name or create a tracking branch.</li>
+  <li><b>New branch:</b> Specify a new branch name and an optional starting branch or commit.</li>
+  <li><b>Detached HEAD:</b> Inspect a commit without attaching the new workspace to a branch.</li>
+  <li><b>Orphan branch:</b> Start a branch without inherited commit history, subject to your installed Git version's support.</li>
+  <li><b>Do not check out files:</b> An optional advanced setting for creating registration without populating files, for workflows such as sparse checkout. It is off by default and unavailable in orphan mode.</li>
+</ul>
+<h3>Understand the worktree list</h3>
+<p>Repositories show registered-worktree counts. Each worktree has a compact status badge. Expand it to see its type, bare state, actual Git lock state, branch, full HEAD, folder creation time, and complete path. Duplicate names are grouped, with eight-character HEAD suffixes to distinguish children. Missing or prunable paths are marked.</p>
+<p>Double-clicking expands or collapses a node. Expanded worktrees provide <b>Open Worktree</b> and <b>Open Folder</b> buttons; an already-open worktree does not offer another Open Worktree action. Right-click a detail row to copy only its value. Refresh reads local metadata and does not fetch remote branches.</p>
+<h3>Manage safely</h3>
+<ul>
+  <li><b>Open Worktree:</b> Open or import the project through the IDE. <b>Open Folder:</b> Open the directory in the operating system's file manager.</li>
+  <li><b>Lock / Unlock:</b> Set or remove Git's retention marker. A lock prevents pruning of its registration; it does not make files read-only.</li>
+  <li><b>Repair:</b> Ask Git to repair administrative links after directories have been moved outside the plugin. It updates metadata, not source files or commits.</li>
+  <li><b>Prune or Delete:</b> A valid worktree offers Delete; a missing or prunable registration offers Prune instead. Prune previews repository-wide stale registrations and does not delete existing directories. Delete removes a linked directory and its registration. Modified or untracked files require a separate confirmation before force removal.</li>
+  <li><b>Move:</b> Ask Git to move a linked worktree and update registration. The destination must not exist and its parent must exist.</li>
+</ul>
+<p><b>Protection:</b> The main worktree and worktrees open as projects in this IDE session cannot be pruned, moved, deleted, locked, or unlocked from the manager. This protection is independent of branch names and does not create a Git lock. Truly Git-locked worktrees also hide Move and Delete. High-risk operations have confirmations, and running operations show a blocking progress state.</p>
+<p><b>Creation conflicts:</b> Missing-directory registrations can be cleaned after confirmation before retrying. A branch checked out elsewhere requires explicit force confirmation. Active worktrees are not duplicated, and non-empty directories are never overwritten.</p>
+<h3>Language and translation tools</h3>
+<p>Use the settings button beside Refresh to follow the IDE language or select a bundled language. The current release includes ten language packs: <b>English</b>, <b>Simplified Chinese</b>, <b>Traditional Chinese</b>, <b>Japanese</b>, <b>Korean</b>, <b>German</b>, <b>French</b>, <b>Spanish</b>, <b>Portuguese (Brazil)</b>, and <b>Russian</b>. Labels display the running IDE's product name rather than assuming a particular IDE.</p>
+<p>The translation editor opens at the current language. Switch tabs, edit values while keys remain read-only, or search with <b>Ctrl+F</b> / <b>Search...</b>, optionally including keys. Import and export key=value text with checks for missing, duplicate, and unknown keys. Add a language with <b>+</b>, double-click a tab to rename it, and right-click a user-added tab to delete it after confirmation. Discarding an unsaved session restores all its changes, including added tabs.</p>
+<p>Language names live in a separate JSON catalog. The language-list editor lets you rename entries, import/export names, or start adding a language. Existing translations and custom names are retained when new bundled languages are added.</p>
+<h3>Requirements and boundaries</h3>
+<p>Requires a compatible IntelliJ Platform build, the Git plugin, and an installed Git executable configured in the IDE. This build targets platform <b>262.9437.185 or newer</b> and was built against Android Studio Panda 3. Android Studio is available for macOS, and the plugin uses cross-platform IDE and Java APIs; however, this release has not been runtime-tested on macOS. Other products and versions require separate compatibility verification. Git operations run locally; the plugin does not provide hosting, fetching, merging, rebasing, or deployment features.</p>
+<p>See the listing's <b>Media</b> section for walkthrough screenshots. Screenshots are reference images supplied by the author; some show the earlier two-language interface. The current release includes ten language packs.</p>
