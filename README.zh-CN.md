@@ -1,5 +1,5 @@
 # Git Worktree Sport
-
+![](https://plugins.jetbrains.com/files/35384/63552-page/51475f4a-8e8b-4e23-8de2-081e8e4465ef)
 **语言 / Languages:** [简体中文](README.zh-CN.md) | [English](README.md)
 
 **JetBrains 插件广场：**[Git Worktree Sport](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport) · [GitHub 源码](https://github.com/MiWiSay/Git-Worktree-Sport)
@@ -20,6 +20,7 @@ Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android 
 - 双击树节点只展开或折叠。右键详细信息行可仅复制对应值。
 - 展开工作区后可打开工作区项目或文件夹；当前已在 IDE 打开的工作区不重复提供“打开工作区”操作。
 - 刷新只重新读取本地 Git 元数据，不会获取远程分支或连接服务器。
+![](https://plugins.jetbrains.com/files/35384/63552-page/5a109458-373d-4547-8d61-0e16cf766c16)
 
 ### 从分支创建工作区
 
@@ -33,6 +34,7 @@ Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android 
 - **孤儿分支：**创建不继承提交历史的新分支，具体取决于本机 Git 版本。
 - **不检出文件：**高级选项，只登记工作区而不写出文件；默认关闭，孤儿分支模式下不可用。
 
+![](https://plugins.jetbrains.com/files/35384/63552-page/9701bb5a-73a9-4523-a610-1f9b05581b15)
 创建前会检查分支冲突、失效的 Git 登记、目标路径和非空目录。对于已在其他工作区检出的分支，需要用户明确确认后才会尝试强制创建；Git 仍会判断操作是否可行。插件不会覆盖非空目录。
 
 操作期间弹窗会显示进度并禁用重复提交；成功后提供“打开项目”选项。关闭成功提示时，工作区列表会展开并以蓝色背景高亮新工作区两秒。
@@ -49,6 +51,7 @@ Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android 
 - **移动：**调用 Git 移动关联工作区并更新登记。目标路径必须不存在，父目录必须存在。
 - **删除：**通过 Git 移除关联工作区及其登记。如果存在修改或未跟踪文件，会先显示额外警告；只有明确确认后才会强制删除整个目录。
 
+![](https://plugins.jetbrains.com/files/35384/63552-page/680afe6d-9c75-4938-86c7-c3a5ee8ca572)
 主工作区以及当前 IDE 会话中已作为项目打开的工作区受保护，不提供清理、移动、删除、锁定和解锁操作，底层服务也会再次校验。此保护不依赖分支名，也不会创建 Git 锁。其他已锁定的关联工作区同样不能移动或删除。
 
 ### 语言与翻译设置
@@ -56,6 +59,9 @@ Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android 
 使用刷新按钮旁的设置按钮，可跟随 IDE 语言或选择插件语言。当前内置语言：**英语、简体中文、繁体中文、日语、韩语、德语、法语、西班牙语、巴西葡萄牙语、俄语**。
 
 翻译编辑器以表格展示内容，key 不可修改、value 可编辑，并支持 `Ctrl+F` 搜索、按 `key=value` 文本导入和导出。导入时会检查重复、未知及缺失 key。可以新增语言、修改语言名，或删除用户新增的语言；取消未保存的编辑可以整体还原本轮更改。
+![](https://plugins.jetbrains.com/files/35384/63552-page/64037262-81ef-44ca-8ede-30972190ce1c)
+![](https://plugins.jetbrains.com/files/35384/63552-page/42db4b27-0573-48b3-bca2-b6ca18bd205f)
+![](https://plugins.jetbrains.com/files/35384/63552-page/bc0062e9-beed-4b4b-889d-6a0ad23d15e0)
 
 ## 项目链接
 
