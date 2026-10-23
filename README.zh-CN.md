@@ -65,28 +65,6 @@ Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android 
 4. 展开仓库和工作区查看详情，右击工作区进行管理。
 5. 创建工作区时，在 Git 分支弹窗选择分支并点击 **Create Worktree...**。
 
-## 构建
-
-本版本构建目标为 Android Studio Panda 3（`AI-262.9437.185.2621.16467767`）、JDK 25 和 Gradle Wrapper 9.7.1。当前已验证 Windows 运行环境；Android Studio 提供 macOS 版本，插件也使用跨平台 API，但本次尚未在 macOS 实机运行验证。
-
-Windows PowerShell：
-
-```powershell
-$env:JAVA_HOME = "C:\Program Files\Android\Android Studio Panda 3\jbr"
-.\gradlew.bat clean buildPlugin verifyPluginProjectConfiguration verifyPluginStructure --no-daemon --console=plain
-```
-
-macOS（默认 IDE 路径为 `/Applications/Android Studio.app/Contents`）：
-
-```bash
-export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-./gradlew clean buildPlugin verifyPluginProjectConfiguration verifyPluginStructure --no-daemon --console=plain
-```
-
-如果 Android Studio 安装在其他位置，可通过 `-PandroidStudioPath="/path/to/Android Studio.app/Contents"` 或环境变量 `ANDROID_STUDIO_PATH` 指定路径。插件 ZIP 输出到工程根目录的 `outputs/` 文件夹。
-
-运行 `tests/run-regression.ps1` 可执行 Windows 本地回归检查；该 PowerShell 测试脚本目前面向 Windows。当前发行包已在 Windows 上验证；macOS 的插件运行和界面行为仍需在 Mac 上测试。
-
 ## 项目链接
 
 - 插件广场：[Git Worktree Sport on JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport)
