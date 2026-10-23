@@ -64,17 +64,6 @@ Both editors support one-click text export to the clipboard and text import. Tra
 4. Expand a repository and worktree to inspect details. Right-click a worktree to manage it.
 5. To create a worktree, select a branch from the Git Branches popup and choose **Create Worktree...**.
 
-## Marketplace 发布素材
-
-本工程的英文 Overview、图文教程、Marketplace 媒体图与发布指南统一输出到根目录 `outputs/`：
-
-- `outputs/Git Worktree Sport-1.0.2.zip`：Android Studio 安装包，也可从上方下载链接获取。
-- `outputs/Overview/`：静态英文 Overview 与教程预览。
-- `outputs/Marketplace-Media/`：可上传到 Marketplace Media 的 1600×1000 图片。
-- `outputs/Git Worktree Sport-1.0.2-发布指南.md`：手动上传步骤及发布前待确认项。
-- `outputs/Git Worktree Sport-1.0.2-发布素材.zip`：上述发布素材集合，不是插件安装包。
-
-`plugins.jetbrains.com/generator` 仅用于生成新插件工程，不是上传入口；发布请登录 JetBrains Marketplace 后从账号菜单选择 **Upload plugin**。发布前仍需由作者本人决定真实联系邮箱与许可证/EULA。
 ## Build
 
 Target: Android Studio Panda 3 (`AI-262.9437.185.2621.16467767`), JDK 25, Gradle Wrapper 9.7.1. Windows is the verified runtime platform. macOS Android Studio is supported by the IDE, and this plugin uses cross-platform APIs, but macOS runtime testing remains outstanding.
