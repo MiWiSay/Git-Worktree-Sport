@@ -56,14 +56,6 @@ Use the compact settings button beside Refresh to choose the IDE default or a co
 
 Both editors support one-click text export to the clipboard and text import. Translation imports require every configured key, reject unknown or duplicate keys, and report missing keys before saving. Language-list imports require every existing ID and cannot rename IDs or remove language files.
 
-## Getting Started
-
-1. In Android Studio, open **Settings → Plugins → Install Plugin from Disk...**.
-2. Select `outputs/Git Worktree Sport-1.0.2.zip` and restart the IDE.
-3. Choose **Git → Worktree Sport → Refresh** to open the manager and load worktrees from open projects.
-4. Expand a repository and worktree to inspect details. Right-click a worktree to manage it.
-5. To create a worktree, select a branch from the Git Branches popup and choose **Create Worktree...**.
-
 ## IDE-aware languages and empty-area creation
 
 UI messages resolve `{ideName}` using the running IDE product name, including legacy user messages containing the former product name. Language packs are configured by JSON, not Java language enums. Upgrades append newly bundled packs without overwriting user translations or renamed language entries.
