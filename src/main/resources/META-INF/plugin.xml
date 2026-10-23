@@ -2,7 +2,7 @@
     <id>com.miwi.talkinas.gitworktree</id>
     <name>Git Worktree Sport</name>
     <vendor>MiWi</vendor>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <idea-version since-build="262.9437.185" />
     <description><![CDATA[
 <p>Create and manage Git worktrees without leaving your IDE. Keep parallel tasks in separate working directories while sharing one Git repository. Git Worktree Sport is free and has no purchase flow.</p>
@@ -47,6 +47,8 @@
 ]]></description>
 
     <change-notes><![CDATA[
+<h3>1.0.2</h3>
+<ul><li>Kept both language editor actions visible in a second row aligned with the language selector.</li></ul>
 <h3>1.0.1</h3>
 <ul><li>Replaced a deprecated repository chooser with the IDE's native popup chooser.</li><li>Limited the Windows Git long-path setting to Windows hosts and added macOS Android Studio path defaults for development builds.</li><li>Updated setup instructions and compatibility notes; macOS runtime behavior still requires device verification.</li></ul>
     ]]></change-notes>

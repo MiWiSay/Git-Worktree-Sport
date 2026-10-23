@@ -4,6 +4,8 @@
 
 **JetBrains Marketplace:** [Git Worktree Sport](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport) · [GitHub source](https://github.com/MiWiSay/Git-Worktree-Sport)
 
+**Download:** [Git Worktree Sport 1.0.2 plugin ZIP](outputs/Git%20Worktree%20Sport-1.0.2.zip) · Install through **Settings → Plugins → Install Plugin from Disk...**.
+
 Git Worktree Sport is an IntelliJ Platform plugin (built and verified against Android Studio) for creating and managing Git worktrees. It provides one tree for worktrees belonging to Git repositories in projects currently open in the IDE, and adds a branch action for creating a linked working directory. Git worktrees let you work on different branches in parallel without repeatedly switching the files in one checkout.
 
 The plugin invokes the Git executable configured in the IDE and uses Git's built-in `worktree` commands. Git Worktree is free; the plugin does not require a paid service or include a purchase flow.
@@ -57,7 +59,7 @@ Both editors support one-click text export to the clipboard and text import. Tra
 ## Getting Started
 
 1. In Android Studio, open **Settings → Plugins → Install Plugin from Disk...**.
-2. Select `outputs/Git Worktree Sport-1.0.1.zip` and restart the IDE.
+2. Select `outputs/Git Worktree Sport-1.0.2.zip` and restart the IDE.
 3. Choose **Git → Worktree Sport → Refresh** to open the manager and load worktrees from open projects.
 4. Expand a repository and worktree to inspect details. Right-click a worktree to manage it.
 5. To create a worktree, select a branch from the Git Branches popup and choose **Create Worktree...**.
@@ -66,11 +68,11 @@ Both editors support one-click text export to the clipboard and text import. Tra
 
 本工程的英文 Overview、图文教程、Marketplace 媒体图与发布指南统一输出到根目录 `outputs/`：
 
-- `outputs/Git Worktree Sport-1.0.1.zip`：Android Studio 安装包。
+- `outputs/Git Worktree Sport-1.0.2.zip`：Android Studio 安装包，也可从上方下载链接获取。
 - `outputs/Overview/`：静态英文 Overview 与教程预览。
 - `outputs/Marketplace-Media/`：可上传到 Marketplace Media 的 1600×1000 图片。
-- `outputs/Git Worktree Sport-1.0.1-发布指南.md`：手动上传步骤及发布前待确认项。
-- `outputs/Git Worktree Sport-1.0.1-发布素材.zip`：上述发布素材集合，不是插件安装包。
+- `outputs/Git Worktree Sport-1.0.2-发布指南.md`：手动上传步骤及发布前待确认项。
+- `outputs/Git Worktree Sport-1.0.2-发布素材.zip`：上述发布素材集合，不是插件安装包。
 
 `plugins.jetbrains.com/generator` 仅用于生成新插件工程，不是上传入口；发布请登录 JetBrains Marketplace 后从账号菜单选择 **Upload plugin**。发布前仍需由作者本人决定真实联系邮箱与许可证/EULA。
 ## Build

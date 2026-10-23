@@ -13,7 +13,7 @@ assert(!/<(?:script|iframe|select|button)\b/i.test(description), 'Marketplace de
 assert(!/file:|localhost|127\.0\.0\.1|C:\\|D:\\|\.\.\/|example\.invalid/.test(description), 'No machine-specific paths in listing copy');
 assert(!descriptor.includes('example.invalid'), 'Placeholder vendor contact removed');
 assert(descriptor.includes('<id>com.miwi.talkinas.gitworktree</id>'), 'Existing installed plugin identity remains stable');
-assert(descriptor.includes('<version>1.0.1</version>'), 'Plugin descriptor carries release version 1.0.1');
+assert(descriptor.includes('<version>1.0.2</version>'), 'Plugin descriptor carries release version 1.0.2');
 const guidePath = path.join(root, 'docs/overview/index.html');
 const guide = fs.readFileSync(guidePath, 'utf8');
 const refs = [...guide.matchAll(/<img\b[^>]*src="([^"]+)"/g)].map(match => match[1]);

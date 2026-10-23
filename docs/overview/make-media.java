@@ -28,7 +28,7 @@ class MakeMedia {
             g.fillRect(0, 0, 1600, 1000);
             g.setColor(new Color(134, 184, 255));
             g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 18));
-            g.drawString("GIT WORKTREE SPORT  /  1.0.1", 64, 52);
+            g.drawString("GIT WORKTREE SPORT  /  1.0.2", 64, 52);
             g.setColor(new Color(238, 243, 251));
             g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 40));
             g.drawString(slide[2], 64, 108);

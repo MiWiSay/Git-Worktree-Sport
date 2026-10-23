@@ -35,6 +35,9 @@ import javax.swing.border.Border;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
@@ -57,6 +60,7 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
     private final JLabel languageLabel = new JLabel();
     private final JButton editTranslationsButton = new JButton();
     private final JButton editLanguageListButton = new JButton();
+    private JPanel settingsPanel;
     private boolean reloadingLanguageOptions;
     private final String originalLanguage;
 
@@ -86,15 +90,31 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
     }
 
     @Override protected JComponent createCenterPanel() {
-        JPanel panel = new JPanel(new BorderLayout(8, 8));
-        JPanel languageRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        languageRow.add(languageLabel);
-        languageRow.add(languageBox);
+        JPanel panel = new JPanel(new GridBagLayout());
+        settingsPanel = panel;
+        GridBagConstraints constraints = new GridBagConstraints();
+        constraints.insets = new Insets(4, 4, 4, 4);
+        constraints.anchor = GridBagConstraints.WEST;
+        constraints.gridy = 0;
+        constraints.gridx = 0;
+        panel.add(languageLabel, constraints);
+        constraints.gridx = 1;
+        constraints.weightx = 1;
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+        panel.add(languageBox, constraints);
+
         editTranslationsButton.addActionListener(event -> editTranslations());
         editLanguageListButton.addActionListener(event -> editLanguageList());
-        languageRow.add(editTranslationsButton);
-        languageRow.add(editLanguageListButton);
-        panel.add(languageRow, BorderLayout.NORTH);
+        JPanel languageActionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        languageActionsPanel.add(editTranslationsButton);
+        languageActionsPanel.add(editLanguageListButton);
+        constraints.gridx = 1;
+        constraints.gridy = 1;
+        constraints.weightx = 1;
+        constraints.fill = GridBagConstraints.NONE;
+        constraints.anchor = GridBagConstraints.WEST;
+        panel.add(languageActionsPanel, constraints);
+
         updateLabels();
         return panel;
     }
@@ -122,6 +142,13 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         setOKButtonText(I18n.text("button.save"));
         setCancelButtonText(I18n.text("button.cancel"));
         languageBox.repaint();
+        if (settingsPanel != null) {
+            settingsPanel.revalidate();
+            settingsPanel.repaint();
+            // Translation labels may be wider than the previous language; resize instead of clipping the buttons.
+            java.awt.Window window = javax.swing.SwingUtilities.getWindowAncestor(settingsPanel);
+            if (window != null) window.pack();
+        }
     }
 
     @Override public void doCancelAction() {
