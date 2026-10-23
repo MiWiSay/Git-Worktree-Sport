@@ -57,14 +57,6 @@ Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android 
 
 翻译编辑器以表格展示内容，key 不可修改、value 可编辑，并支持 `Ctrl+F` 搜索、按 `key=value` 文本导入和导出。导入时会检查重复、未知及缺失 key。可以新增语言、修改语言名，或删除用户新增的语言；取消未保存的编辑可以整体还原本轮更改。
 
-## 安装与使用
-
-1. 在 IDE 中打开 **Settings → Plugins → Install Plugin from Disk...**。
-2. 选择 `outputs/Git Worktree Sport-1.0.2.zip` 并重启 IDE。
-3. 打开 **Git → Worktree Sport → Refresh**，加载已打开项目中的工作区。
-4. 展开仓库和工作区查看详情，右击工作区进行管理。
-5. 创建工作区时，在 Git 分支弹窗选择分支并点击 **Create Worktree...**。
-
 ## 项目链接
 
 - 插件广场：[Git Worktree Sport on JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport)
