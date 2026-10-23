@@ -50,16 +50,14 @@ Right-click a worktree in the tree to access these operations:
 
 The main worktree's badge remains green when Git reports it as unlocked. The main worktree and each worktree currently open as an Android Studio project hide Prune, Move, Delete, Lock, and Unlock; service-level checks enforce the same protection. Current-project protection does not change the Git lock state shown in details. The manager does not run Git lock/unlock on the main worktree. A real Git lock is shown in blue. Other locked linked worktrees hide Move/Delete, and direct calls are rejected until unlocked.
 
-### Language settings
+### Language and Translation Settings
 
-Use the compact settings button beside Refresh to choose the IDE default or a configured language. Translations are stored as separate JSON files; `languages.json` independently maps each short file ID (up to eight characters) to its display name. These editable files are stored under the IDE configuration directory. The translation editor uses native IDE themed tabs and a table whose keys are read-only and values are editable. Double-click a tab name to rename it; the trailing **+** creates a language named `New N` from the English fallback. Right-click a tab to delete a user-added language after confirmation; packaged baseline languages are protected. Canceling a changed translation session offers save, discard, or continue editing; discard restores the complete language-file snapshot, including added or deleted tabs. The separate language-list editor has its own table and add control.
+You can use the settings button next to the refresh button to follow the IDE language or choose the plugin language. Built-in languages include: **English, Simplified Chinese, Traditional Chinese, Japanese, Korean, German, French, Spanish, Brazilian Portuguese, Russian**.
 
-Both editors support one-click text export to the clipboard and text import. Translation imports require every configured key, reject unknown or duplicate keys, and report missing keys before saving. Language-list imports require every existing ID and cannot rename IDs or remove language files.
+The translation editor displays content in a table where keys cannot be modified, values can be edited, and it supports `Ctrl+F` searching, importing and exporting text in `key=value` format. It checks for duplicates, unknown, and missing keys during import. You can add a new language, change a language name, or delete user-added languages; unsaved edits can be reverted to restore changes from the current session.
 
-## IDE-aware languages and empty-area creation
+## Project Links
 
-UI messages resolve `{ideName}` using the running IDE product name, including legacy user messages containing the former product name. Language packs are configured by JSON, not Java language enums. Upgrades append newly bundled packs without overwriting user translations or renamed language entries.
-
-Right-click empty space in the worktree tree to open a scrollable, speed-searchable branch popup (18 visible rows). Local and remote branches are grouped by repository across open projects. Click a branch to open its Create Worktree submenu. Creation reuses the existing branch action and all its conflict/progress/success behavior. Right-clicking an actual node still uses its existing context menu.
-
-Bundled languages: English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Português (Brasil), Русский. Other IntelliJ-based IDEs require compatible platform builds and the Git plugin; only the configured Android Studio SDK has been compiled/tested in this delivery.
+- Plugin marketplace: [Git Worktree Sport on JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport)
+- Source code & issues: [GitHub Repository](https://github.com/MiWiSay/Git-Worktree-Sport)
+- License: [Apache-2.0](https://github.com/MiWiSay/Git-Worktree-Sport/blob/main/LICENSE)
