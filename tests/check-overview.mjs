@@ -9,7 +9,7 @@ const embedded = descriptor.match(/<description><!\[CDATA\[\s*([\s\S]*?)\s*\]\]>
 assert(embedded?.trim(), 'Plugin descriptor contains an Overview description');
 assert(!descriptor.includes('example.invalid'), 'Placeholder vendor contact removed');
 assert(descriptor.includes('<id>com.miwi.talkinas.gitworktree</id>'), 'Existing installed plugin identity remains stable');
-assert(descriptor.includes('<version>1.0.4</version>'), 'Plugin descriptor carries release version 1.0.4');
+assert(descriptor.includes('<version>1.0.3</version>'), 'Plugin descriptor carries release version 1.0.3');
 const overviewRoot = path.join(root, 'docs/overview');
 const descriptionPath = path.join(overviewRoot, 'description.html');
 const guidePath = path.join(overviewRoot, 'index.html');

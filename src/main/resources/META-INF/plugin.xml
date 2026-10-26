@@ -2,7 +2,7 @@
     <id>com.miwi.talkinas.gitworktree</id>
     <name>Git Worktree Sport</name>
     <vendor>MiWi</vendor>
-    <version>1.0.4</version>
+    <version>1.0.3</version>
     <idea-version since-build="262.9437.185" />
     <description><![CDATA[
 <p>Create and manage Git worktrees without leaving your IDE. Keep parallel tasks in separate working directories while sharing one Git repository. Git Worktree Sport is free and has no purchase flow.</p>
@@ -47,10 +47,8 @@
 ]]></description>
 
     <change-notes><![CDATA[
-<h3>1.0.4</h3>
-<ul><li>Added automatic refresh after IDE initialization and reliable context-menu targeting across the full worktree row.</li><li>Added an optional setting to show protected high-risk actions as disabled entries with their protection reason.</li></ul>
 <h3>1.0.3</h3>
-<ul><li>Improved worktree action availability and validation for missing, invalid, locked, and currently open worktrees.</li><li>Hardened Git worktree metadata parsing and added regression coverage for cleanup and protection rules.</li></ul>
+<ul><li>Improved worktree action availability and validation for missing, invalid, locked, and currently open worktrees.</li><li>Hardened Git worktree metadata parsing and added regression coverage for cleanup and protection rules.</li><li>Added automatic refresh after IDE initialization and reliable context-menu targeting across the full worktree row.</li><li>Added optional list instructions and a setting to show protected high-risk actions as disabled entries with their protection reason.</li></ul>
 <h3>1.0.2</h3>
 <ul><li>Kept both language editor actions visible in a second row aligned with the language selector.</li></ul>
 <h3>1.0.1</h3>

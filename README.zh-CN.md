@@ -4,7 +4,7 @@
 
 **JetBrains 插件广场：**[Git Worktree Sport](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport) · [GitHub 源码](https://github.com/MiWiSay/Git-Worktree-Sport)
 
-**下载：**[Git Worktree Sport 1.0.4 插件安装包](outputs/Git%20Worktree%20Sport-1.0.4.zip)，下载后在 IDE 的 **Settings → Plugins → Install Plugin from Disk...** 中安装。
+**下载：**[Git Worktree Sport 1.0.3 插件安装包](outputs/Git%20Worktree%20Sport-1.0.3.zip)，下载后在 IDE 的 **Settings → Plugins → Install Plugin from Disk...** 中安装。
 
 Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android Studio 构建并验证）的免费插件，用于创建和管理 Git 工作区（Git worktree）。它会汇总当前已打开 IDE 项目中的 Git 工作区，并可从分支列表创建新的关联工作区，让你同时处理多个分支，而无需反复切换同一份工作目录。
 

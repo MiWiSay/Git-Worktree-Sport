@@ -4,7 +4,7 @@
 
 **JetBrains Marketplace:** [Git Worktree Sport](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport) · [GitHub source](https://github.com/MiWiSay/Git-Worktree-Sport)
 
-**Download:** [Git Worktree Sport 1.0.4 plugin ZIP](outputs/Git%20Worktree%20Sport-1.0.4.zip) · Install through **Settings → Plugins → Install Plugin from Disk...**.
+**Download:** [Git Worktree Sport 1.0.3 plugin ZIP](outputs/Git%20Worktree%20Sport-1.0.3.zip) · Install through **Settings → Plugins → Install Plugin from Disk...**.
 
 Git Worktree Sport is an IntelliJ Platform plugin (built and verified against Android Studio) for creating and managing Git worktrees. It provides one tree for worktrees belonging to Git repositories in projects currently open in the IDE, and adds a branch action for creating a linked working directory. Git worktrees let you work on different branches in parallel without repeatedly switching the files in one checkout.
 
