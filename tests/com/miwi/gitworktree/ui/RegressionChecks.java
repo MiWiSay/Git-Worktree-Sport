@@ -4,6 +4,8 @@ import com.intellij.DynamicBundle;
 import com.intellij.ide.util.PropertiesComponent;
 import com.miwi.gitworktree.model.WorktreeEntry;
 import com.miwi.gitworktree.service.WorktreeRemovalPolicy;
+import com.miwi.gitworktree.service.WorktreeListParser;
+import com.miwi.gitworktree.service.WorktreePaths;
 
 import java.nio.file.Path;
 import java.nio.file.Files;
@@ -85,6 +87,13 @@ public final class RegressionChecks {
                     "settings.unsavedLanguageChanges", "settings.discardChanges", "settings.search",
                     "settings.searchClose", "settings.searchHint", "settings.searchIncludeKey",
                     "settings.searchMatchCount", "settings.searchNext", "settings.searchPrevious",
+                    "settings.section.language", "settings.section.display", "settings.hideListHelp",
+                    "settings.hideListHelpHint", "settings.showProtectedActions",
+                    "settings.showProtectedActionsHint", "settings.protectedActionsList",
+                    "confirm.showProtectedActions", "tree.help.worktreeItem", "tree.help.emptySpace",
+                    "menu.protectedReason.main", "menu.protectedReason.mainLock",
+                    "menu.protectedReason.current", "menu.protectedReason.locked",
+                    "menu.protectedReason.unavailable",
                     "create.mode", "create.mode.existing", "create.mode.new", "create.mode.detached",
                     "create.mode.orphan", "create.branchName", "create.startPoint", "create.noCheckout",
                     "error.deleteStaleWorktree", "error.pruneHealthyWorktree")) {
@@ -106,6 +115,16 @@ public final class RegressionChecks {
                                 .contains(entry.getKey()) && entry.getValue().contains("Worktree")),
                 "Simplified Chinese only retains Worktree in the bilingual label and product brand");
         PropertiesComponent properties = PropertiesComponent.getInstance();
+        properties.values.remove("git.worktree.sport.showListHelp");
+        properties.values.remove("git.worktree.sport.showProtectedActions");
+        check(WorktreePreferences.showListHelp(), "Worktree list help is visible by default");
+        check(!WorktreePreferences.showProtectedActions(), "Protected actions are hidden by default");
+        WorktreePreferences.setShowListHelp(false);
+        WorktreePreferences.setShowProtectedActions(true);
+        check(!WorktreePreferences.showListHelp() && WorktreePreferences.showProtectedActions(),
+                "Worktree display preferences persist independently");
+        WorktreePreferences.setShowListHelp(true);
+        WorktreePreferences.setShowProtectedActions(false);
         I18n.setLanguage(first.id());
         com.intellij.openapi.application.ApplicationNamesInfo.product = "IntelliJ IDEA";
         check(I18n.text("settings.languageHint").contains("IntelliJ IDEA"), "Actual IDE name replaces placeholder");
@@ -228,6 +247,9 @@ public final class RegressionChecks {
         check(!main.effectivelyLocked(), "Main worktree protection does not change the Git lock state");
         check(main.protectedFromMoveOrDelete(), "Main worktree cannot be moved or deleted");
         check(main.protectedFromPrune(), "Main worktree context cannot run prune");
+        check(!main.protectedFromOpenWorktree(), "Main worktree can be opened when another worktree is active");
+        check(main.withCurrentProject(true).protectedFromOpenWorktree(),
+                "Currently open main worktree hides the duplicate open action");
         check(current.protectedFromMoveOrDelete() && current.protectedFromPrune(),
                 "Currently open linked worktree is protected from high-risk operations");
         check(current.protectedFromGitLockChanges() && current.protectedFromOpenWorktree(),
@@ -236,7 +258,60 @@ public final class RegressionChecks {
                 "Current-project protection does not fake Git's lock state");
         equal(WorktreeGroups.countLabel(5), "5", "Worktree counts render without parentheses");
         check(locked.protectedFromMoveOrDelete(), "Git-locked worktree cannot be moved or deleted");
+        check(locked.protectedFromPrune(), "Git-locked worktree cannot be pruned");
         check(!linked.protectedFromMoveOrDelete(), "Unlocked linked worktree remains manageable");
+        Path pathFixture = Files.createTempDirectory("worktree-path-identity-");
+        Path worktreeRoot = pathFixture.resolve("Repo");
+        Path nestedProject = worktreeRoot.resolve("module");
+        Files.createDirectories(nestedProject);
+        WorktreeEntry openableMain = entry(repo, worktreeRoot, "main", "abc", true);
+        check(openableMain.canOpenWorktree(), "An existing main worktree can be opened after switching elsewhere");
+        check(!openableMain.withCurrentProject(true).canOpenWorktree(),
+                "The worktree already open as the current project hides duplicate project opening");
+        check(WorktreePaths.sameOrAncestor(worktreeRoot, nestedProject),
+                "An IDE project nested below its worktree resolves to that worktree");
+        check(!WorktreePaths.sameOrAncestor(nestedProject, worktreeRoot),
+                "Path containment does not match in the reverse direction");
+        Path missingWorktreePath = pathFixture.resolve("missing-worktree");
+        WorktreeEntry missingWorktree = entry(repo, missingWorktreePath, "missing", "abc", false);
+        check(!missingWorktree.canOpenFolder() && !missingWorktree.canOpenWorktree(),
+                "Missing worktree paths expose neither folder nor project opening");
+        WorktreeEntry bareWorktree = new WorktreeEntry(repo, pathFixture.toString(), "(bare)", "abc",
+                false, false, true, false, false);
+        check(bareWorktree.canOpenFolder() && !bareWorktree.canOpenWorktree(),
+                "A bare repository may open as a folder but not as a checked-out project");
+        Path alias = pathFixture.resolve("RepoAlias");
+        try {
+            Files.createSymbolicLink(alias, worktreeRoot);
+            check(WorktreePaths.same(alias, worktreeRoot), "Symbolic-link aliases resolve to one worktree identity");
+            check(WorktreePaths.sameOrAncestor(alias, nestedProject),
+                    "A project opened through a worktree symlink resolves to the same protected worktree");
+        } catch (UnsupportedOperationException | java.io.IOException | SecurityException unavailable) {
+            // Some Windows setups require Developer Mode or elevated privileges for symlink creation.
+        }
+        boolean windows = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win");
+        Path caseVariant = pathFixture.resolve(windows ? "repo" : "Repo");
+        if (windows) {
+            check(WorktreePaths.same(caseVariant, worktreeRoot),
+                    "Windows path identity follows the filesystem's case-insensitive semantics");
+        } else {
+            Path lowerCaseDirectory = pathFixture.resolve("repo");
+            Files.createDirectories(lowerCaseDirectory);
+            check(!WorktreePaths.same(lowerCaseDirectory, worktreeRoot),
+                    "Case-sensitive filesystems keep differently cased worktree paths distinct");
+        }
+        List<WorktreeEntry> standardList = WorktreeListParser.parse(repo,
+                "worktree " + repo + "\nHEAD abc123\nbranch refs/heads/main\n\n"
+                        + "worktree " + pathFixture.resolve("linked") + "\nHEAD def456\nbranch refs/heads/feature\n");
+        check(standardList.getFirst().main() && !standardList.get(1).main(),
+                "The first checkout is protected as main in a standard repository");
+        List<WorktreeEntry> bareList = WorktreeListParser.parse(pathFixture.resolve("bare.git").toString(),
+                "worktree " + pathFixture.resolve("bare.git") + "\nHEAD abc123\nbare\n\n"
+                        + "worktree " + pathFixture.resolve("linked") + "\nHEAD def456\nbranch refs/heads/feature\n");
+        check(bareList.getFirst().bare() && !bareList.getFirst().main(),
+                "A bare repository record is never classified as the main worktree");
+        check(bareList.stream().noneMatch(WorktreeEntry::main),
+                "A bare repository does not invent a protected main checkout");
         check(WorktreeRemovalPolicy.allowsForceRetry(new Exception("fatal: 'path' contains modified or untracked files, use --force to delete it")),
                 "Git modified/untracked removal error offers force retry");
         check(!WorktreeRemovalPolicy.allowsForceRetry(new Exception("fatal: worktree is locked")),
@@ -259,6 +334,11 @@ public final class RegressionChecks {
                     "Missing worktree path reports unavailable creation time");
         } finally {
             java.nio.file.Files.deleteIfExists(createdFolder);
+        }
+        try (var paths = Files.walk(pathFixture)) {
+            for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            }
         }
         System.out.println("PASS: " + assertions + " language and grouping assertions");
     }

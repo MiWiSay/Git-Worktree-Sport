@@ -1,6 +1,7 @@
 package com.miwi.gitworktree.ui;
 
 import com.miwi.gitworktree.model.WorktreeEntry;
+import com.miwi.gitworktree.service.WorktreePaths;
 
 import javax.swing.JTree;
 import javax.swing.Timer;
@@ -27,7 +28,7 @@ final class WorktreeHighlight implements AutoCloseable {
 
     void request(Path path) {
         close();
-        pendingPath = path.toAbsolutePath().normalize();
+        pendingPath = WorktreePaths.identity(path);
     }
 
     void afterRebuild(DefaultMutableTreeNode root) {
@@ -53,7 +54,7 @@ final class WorktreeHighlight implements AutoCloseable {
     }
 
     boolean isTarget(WorktreeEntry entry) {
-        return activePath != null && activePath.equals(Path.of(entry.path()).toAbsolutePath().normalize());
+        return activePath != null && WorktreePaths.same(activePath, Path.of(entry.path()));
     }
 
     boolean isLit() { return lit; }
@@ -82,7 +83,7 @@ final class WorktreeHighlight implements AutoCloseable {
         while (nodes.hasMoreElements()) {
             DefaultMutableTreeNode node = (DefaultMutableTreeNode) nodes.nextElement();
             if (node.getUserObject() instanceof WorktreeEntry entry
-                    && target.equals(Path.of(entry.path()).toAbsolutePath().normalize())) {
+                    && WorktreePaths.same(target, Path.of(entry.path()))) {
                 return new TreePath(node.getPath());
             }
         }

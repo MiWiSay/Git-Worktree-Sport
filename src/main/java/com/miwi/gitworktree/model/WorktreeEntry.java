@@ -26,7 +26,7 @@ public record WorktreeEntry(
     }
 
     public boolean protectedFromPrune() {
-        return main || currentProject;
+        return main || currentProject || locked;
     }
 
     public boolean protectedFromGitLockChanges() {
@@ -34,7 +34,16 @@ public record WorktreeEntry(
     }
 
     public boolean protectedFromOpenWorktree() {
-        return main || currentProject;
+        // 主工作区可以在切换到其他工作区后重新打开；只有当前 IDE 已经打开的项目需要隐藏重复打开入口。
+        return currentProject;
+    }
+
+    public boolean canOpenFolder() {
+        return java.nio.file.Files.isDirectory(java.nio.file.Path.of(path));
+    }
+
+    public boolean canOpenWorktree() {
+        return !protectedFromOpenWorktree() && !bare && canOpenFolder();
     }
 
     public CleanupDeleteAction cleanupDeleteAction() {

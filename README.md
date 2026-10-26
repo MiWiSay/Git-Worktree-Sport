@@ -4,7 +4,7 @@
 
 **JetBrains Marketplace:** [Git Worktree Sport](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport) · [GitHub source](https://github.com/MiWiSay/Git-Worktree-Sport)
 
-**Download:** [Git Worktree Sport 1.0.2 plugin ZIP](outputs/Git%20Worktree%20Sport-1.0.2.zip) · Install through **Settings → Plugins → Install Plugin from Disk...**.
+**Download:** [Git Worktree Sport 1.0.4 plugin ZIP](outputs/Git%20Worktree%20Sport-1.0.4.zip) · Install through **Settings → Plugins → Install Plugin from Disk...**.
 
 Git Worktree Sport is an IntelliJ Platform plugin (built and verified against Android Studio) for creating and managing Git worktrees. It provides one tree for worktrees belonging to Git repositories in projects currently open in the IDE, and adds a branch action for creating a linked working directory. Git worktrees let you work on different branches in parallel without repeatedly switching the files in one checkout.
 
@@ -51,7 +51,7 @@ Right-click a worktree in the tree to access these operations:
 - **Delete Worktree** first uses normal Git removal. If Git reports modified or untracked files, a second warning explains that force removal permanently deletes the entire directory; only explicit confirmation runs `git worktree remove --force`.
 
 ![](https://plugins.jetbrains.com/files/35384/63552-page/680afe6d-9c75-4938-86c7-c3a5ee8ca572)
-The main worktree's badge remains green when Git reports it as unlocked. The main worktree and each worktree currently open as an Android Studio project hide Prune, Move, Delete, Lock, and Unlock; service-level checks enforce the same protection. Current-project protection does not change the Git lock state shown in details. The manager does not run Git lock/unlock on the main worktree. A real Git lock is shown in blue. Other locked linked worktrees hide Move/Delete, and direct calls are rejected until unlocked.
+The main worktree's badge remains green when Git reports it as unlocked. The main worktree and each worktree currently open as an Android Studio project hide Prune, Move, Delete, Lock, and Unlock by default; service-level checks enforce the same protection. The settings dialog can show these protected entries as disabled items with a short reason, without enabling them. Current-project protection does not change the Git lock state shown in details. The manager does not run Git lock/unlock on the main worktree. A real Git lock is shown in blue. Other locked linked worktrees hide Move/Delete by default, and direct calls are rejected until unlocked.
 
 ### Language and Translation Settings
 

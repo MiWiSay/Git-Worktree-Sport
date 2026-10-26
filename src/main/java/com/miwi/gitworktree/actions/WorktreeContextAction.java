@@ -6,8 +6,10 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.miwi.gitworktree.ui.I18n;
+import com.miwi.gitworktree.ui.WorktreePreferences;
 import com.miwi.gitworktree.ui.WorktreesPanel;
 import com.miwi.gitworktree.model.WorktreeEntry;
+import com.miwi.gitworktree.service.WorktreeService;
 
 public abstract class WorktreeContextAction extends AnAction {
     private final String operation;
@@ -20,23 +22,36 @@ public abstract class WorktreeContextAction extends AnAction {
     }
 
     @Override public void update(AnActionEvent event) {
-        event.getPresentation().setText(I18n.text(labelKey));
+        var presentation = event.getPresentation();
+        presentation.setText(I18n.text(labelKey));
+        presentation.setDescription((String) null);
         WorktreesPanel panel = panel(event.getProject());
         WorktreeEntry entry = panel == null ? null : panel.selectedWorktree();
         boolean visible = entry != null;
         if (entry != null) {
-            visible = switch (operation) {
-                case "openWorktree" -> !entry.protectedFromOpenWorktree();
-                case "lock" -> !entry.protectedFromGitLockChanges() && !entry.locked();
-                case "unlock" -> !entry.protectedFromGitLockChanges() && entry.locked();
-                case "move" -> entry.cleanupDeleteAction() == WorktreeEntry.CleanupDeleteAction.DELETE;
-                case "delete" -> entry.cleanupDeleteAction() == WorktreeEntry.CleanupDeleteAction.DELETE;
-                case "prune" -> entry.cleanupDeleteAction() == WorktreeEntry.CleanupDeleteAction.PRUNE;
+            boolean allowed = switch (operation) {
+                case "openWorktree" -> WorktreeService.canOpenWorktree(entry);
+                case "open" -> WorktreeService.canOpenFolder(entry);
+                case "lock" -> WorktreeService.canChangeGitLock(entry) && !entry.locked();
+                case "unlock" -> WorktreeService.canChangeGitLock(entry) && entry.locked();
+                case "move", "delete" -> WorktreeService.cleanupDeleteAction(entry) == WorktreeEntry.CleanupDeleteAction.DELETE;
+                case "prune" -> WorktreeService.cleanupDeleteAction(entry) == WorktreeEntry.CleanupDeleteAction.PRUNE;
                 default -> true;
             };
+            boolean protectedAction = switch (operation) {
+                case "lock", "unlock" -> !WorktreeService.canChangeGitLock(entry);
+                case "prune", "move", "delete" -> WorktreeService.cleanupDeleteAction(entry)
+                        == WorktreeEntry.CleanupDeleteAction.PROTECTED;
+                default -> false;
+            };
+            visible = allowed || (WorktreePreferences.showProtectedActions() && protectedAction);
+            presentation.setEnabled(allowed);
+            if (!allowed && protectedAction) {
+                presentation.setDescription(WorktreeService.protectedActionReason(entry, operation));
+            }
         }
-        event.getPresentation().setVisible(visible);
-        event.getPresentation().setEnabled(visible);
+        presentation.setVisible(visible);
+        if (entry == null) presentation.setEnabled(false);
     }
 
     @Override public void actionPerformed(AnActionEvent event) {

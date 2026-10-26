@@ -14,14 +14,13 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 public final class WorktreeService {
     private WorktreeService() {}
 
     public static List<WorktreeEntry> list(Project project) throws Exception {
-        Map<String, WorktreeEntry> entriesByPath = new LinkedHashMap<>();
+        Map<Path, WorktreeEntry> entriesByPath = new LinkedHashMap<>();
         // 管理入口属于当前项目，但用户希望一次看到 IDE 中其他已打开项目的 worktree。
         Project[] openProjects = ProjectManager.getInstance().getOpenProjects();
         if (openProjects.length == 0 && !project.isDisposed()) openProjects = new Project[]{project};
@@ -29,12 +28,13 @@ public final class WorktreeService {
             if (openProject.isDisposed()) continue;
             String activePath = openProject.getBasePath();
             for (GitRepository repository : git4idea.repo.GitRepositoryManager.getInstance(openProject).getRepositories()) {
-                Path root = Path.of(repository.getRoot().getPath()).toAbsolutePath().normalize();
+                Path root = WorktreePaths.identity(Path.of(repository.getRoot().getPath()));
                 String output = GitCommandRunner.requireSuccess(root, "worktree", "list", "--porcelain");
                 for (WorktreeEntry entry : parse(root.toString(), output)) {
-                    boolean currentProject = activePath != null && pathKey(entry.path()).equals(pathKey(activePath));
+                    boolean currentProject = activePath != null
+                            && WorktreePaths.sameOrAncestor(Path.of(entry.path()), Path.of(activePath));
                     WorktreeEntry labeledEntry = entry.withCurrentProject(currentProject);
-                    String key = pathKey(entry.path());
+                    Path key = WorktreePaths.identity(Path.of(entry.path()));
                     WorktreeEntry existing = entriesByPath.get(key);
                     if (existing == null || (currentProject && !existing.currentProject())) {
                         entriesByPath.put(key, labeledEntry);
@@ -46,7 +46,7 @@ public final class WorktreeService {
     }
 
     public static List<WorktreeEntry> listForRepository(Path repositoryRoot) throws Exception {
-        Path root = repositoryRoot.toAbsolutePath().normalize();
+        Path root = WorktreePaths.identity(repositoryRoot);
         return parse(root.toString(), GitCommandRunner.requireSuccess(root, "worktree", "list", "--porcelain"));
     }
 
@@ -76,10 +76,10 @@ public final class WorktreeService {
 
     public static CreateConflict inspectCreate(Path repositoryRoot, Path target, BranchSpec branch,
                                                boolean checkBranchAvailability) throws Exception {
-        Path root = repositoryRoot.toAbsolutePath().normalize();
+        Path root = WorktreePaths.identity(repositoryRoot);
         Path destination = target.toAbsolutePath().normalize();
         for (WorktreeEntry entry : listForRepository(root)) {
-            if (pathKey(entry.path()).equals(pathKey(destination.toString()))) {
+            if (WorktreePaths.same(Path.of(entry.path()), destination)) {
                 return entry.pathExists() && !entry.prunable()
                         ? new CreateConflict(CreateConflictType.ACTIVE_WORKTREE, entry)
                         : new CreateConflict(CreateConflictType.STALE_REGISTRATION, entry);
@@ -106,9 +106,9 @@ public final class WorktreeService {
 
     public static void create(Path repositoryRoot, Path target, BranchSpec selectedBranch,
                               CreateResolution resolution, CreateSpec spec) throws Exception {
-        Path root = repositoryRoot.toAbsolutePath().normalize();
+        Path root = WorktreePaths.identity(repositoryRoot);
         Path destination = target.toAbsolutePath().normalize();
-        if (destination.equals(root)) throw new IOException(I18n.text("error.targetRepositoryRoot"));
+        if (WorktreePaths.same(destination, root)) throw new IOException(I18n.text("error.targetRepositoryRoot"));
         Path parent = destination.getParent();
         if (parent == null || !Files.isDirectory(parent)) {
             throw new IOException(I18n.format("error.parentMissing", parent));
@@ -259,21 +259,56 @@ public final class WorktreeService {
         }
     }
 
-    private static boolean isOpenInIde(Path path) {
+    public static boolean isOpenInIde(Path path) {
         for (Project openProject : ProjectManager.getInstance().getOpenProjects()) {
             String basePath = openProject.getBasePath();
-            if (basePath != null && pathKey(basePath).equals(pathKey(path.toString()))) return true;
+            if (basePath != null && WorktreePaths.sameOrAncestor(path, Path.of(basePath))) return true;
         }
         return false;
     }
 
-    private static boolean isCurrentProjectWorktree(WorktreeEntry entry) {
+    public static boolean isCurrentProjectWorktree(WorktreeEntry entry) {
         return entry.currentProject() || isOpenInIde(Path.of(entry.path()).toAbsolutePath().normalize());
+    }
+
+    public static boolean canOpenWorktree(WorktreeEntry entry) {
+        return entry.canOpenWorktree() && !isOpenInIde(Path.of(entry.path()));
+    }
+
+    public static boolean canOpenFolder(WorktreeEntry entry) {
+        return entry.canOpenFolder();
+    }
+
+    public static boolean canChangeGitLock(WorktreeEntry entry) {
+        return !entry.main() && !isCurrentProjectWorktree(entry);
+    }
+
+    public static WorktreeEntry.CleanupDeleteAction cleanupDeleteAction(WorktreeEntry entry) {
+        if (entry.main() || isCurrentProjectWorktree(entry) || entry.locked()) {
+            return WorktreeEntry.CleanupDeleteAction.PROTECTED;
+        }
+        return entry.prunable() || !entry.pathExists()
+                ? WorktreeEntry.CleanupDeleteAction.PRUNE : WorktreeEntry.CleanupDeleteAction.DELETE;
+    }
+
+    /**
+     * Returns the short explanation shown for a visible but disabled protected action.
+     * Keep this in the service layer so the IDE action menu and the tool-window menu
+     * describe the same protection state and cannot drift apart.
+     */
+    public static String protectedActionReason(WorktreeEntry entry, String operation) {
+        boolean lockOperation = operation.equals("lock") || operation.equals("unlock");
+        if (entry.main() && lockOperation) return I18n.text("menu.protectedReason.mainLock");
+        if (entry.main()) return I18n.text("menu.protectedReason.main");
+        if (isCurrentProjectWorktree(entry)) return I18n.text("menu.protectedReason.current");
+        if (entry.locked()) return I18n.text("menu.protectedReason.locked");
+        return I18n.text("menu.protectedReason.unavailable");
     }
 
     private static void ensureCanPrune(WorktreeEntry entry) throws IOException {
         if (entry.main()) throw new IOException(I18n.text("error.mainProtectedPrune"));
         if (isCurrentProjectWorktree(entry)) throw new IOException(I18n.text("error.currentWorktreeProtected"));
+        if (entry.locked()) throw new IOException(I18n.text("error.lockedProtected"));
     }
 
     private static void ensureCanChangeGitLock(WorktreeEntry entry) throws IOException {
@@ -281,47 +316,8 @@ public final class WorktreeService {
         if (isCurrentProjectWorktree(entry)) throw new IOException(I18n.text("error.currentWorktreeProtected"));
     }
 
-    private static String pathKey(String path) {
-        String normalized = Path.of(path).toAbsolutePath().normalize().toString();
-        return normalized.toLowerCase(Locale.ROOT);
-    }
-
     private static List<WorktreeEntry> parse(String repositoryRoot, String output) {
-        List<MutableEntry> parsed = new ArrayList<>();
-        MutableEntry current = null;
-        for (String line : output.split("\\R")) {
-            if (line.isBlank()) {
-                current = null;
-            } else if (line.startsWith("worktree ")) {
-                current = new MutableEntry();
-                current.path = line.substring("worktree ".length());
-                parsed.add(current);
-            } else if (current != null && line.startsWith("HEAD ")) {
-                current.head = line.substring("HEAD ".length());
-            } else if (current != null && line.startsWith("branch ")) {
-                String ref = line.substring("branch ".length());
-                current.branch = ref.startsWith("refs/heads/") ? ref.substring("refs/heads/".length()) : ref;
-            } else if (current != null && line.equals("detached")) {
-                current.detached = true;
-            } else if (current != null && line.equals("bare")) {
-                current.bare = true;
-            } else if (current != null && line.startsWith("locked")) {
-                current.locked = true;
-            } else if (current != null && line.startsWith("prunable")) {
-                current.prunable = true;
-            }
-        }
-
-        List<WorktreeEntry> result = new ArrayList<>(parsed.size());
-        for (int i = 0; i < parsed.size(); i++) {
-            MutableEntry entry = parsed.get(i);
-            if (entry.path == null || entry.path.isBlank()) continue;
-            String branch = entry.branch;
-            if (branch == null || branch.isBlank()) branch = entry.detached ? "(detached HEAD)" : "(no branch)";
-            result.add(new WorktreeEntry(repositoryRoot, entry.path, branch,
-                    entry.head == null ? "" : entry.head, i == 0, entry.detached, entry.bare, entry.locked, entry.prunable));
-        }
-        return result;
+        return WorktreeListParser.parse(repositoryRoot, output);
     }
 
     public record BranchSpec(String localName, String startPoint, boolean remote) {}
@@ -367,13 +363,4 @@ public final class WorktreeService {
 
     public record CreateConflict(CreateConflictType type, WorktreeEntry entry) {}
 
-    private static final class MutableEntry {
-        private String path;
-        private String branch;
-        private String head;
-        private boolean detached;
-        private boolean bare;
-        private boolean locked;
-        private boolean prunable;
-    }
 }

@@ -4,7 +4,7 @@
 
 **JetBrains 插件广场：**[Git Worktree Sport](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport) · [GitHub 源码](https://github.com/MiWiSay/Git-Worktree-Sport)
 
-**下载：**[Git Worktree Sport 1.0.2 插件安装包](outputs/Git%20Worktree%20Sport-1.0.2.zip)，下载后在 IDE 的 **Settings → Plugins → Install Plugin from Disk...** 中安装。
+**下载：**[Git Worktree Sport 1.0.4 插件安装包](outputs/Git%20Worktree%20Sport-1.0.4.zip)，下载后在 IDE 的 **Settings → Plugins → Install Plugin from Disk...** 中安装。
 
 Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android Studio 构建并验证）的免费插件，用于创建和管理 Git 工作区（Git worktree）。它会汇总当前已打开 IDE 项目中的 Git 工作区，并可从分支列表创建新的关联工作区，让你同时处理多个分支，而无需反复切换同一份工作目录。
 
@@ -52,7 +52,7 @@ Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android 
 - **删除：**通过 Git 移除关联工作区及其登记。如果存在修改或未跟踪文件，会先显示额外警告；只有明确确认后才会强制删除整个目录。
 
 ![](https://plugins.jetbrains.com/files/35384/63552-page/680afe6d-9c75-4938-86c7-c3a5ee8ca572)
-主工作区以及当前 IDE 会话中已作为项目打开的工作区受保护，不提供清理、移动、删除、锁定和解锁操作，底层服务也会再次校验。此保护不依赖分支名，也不会创建 Git 锁。其他已锁定的关联工作区同样不能移动或删除。
+主工作区以及当前 IDE 会话中已作为项目打开的工作区默认隐藏清理、移动、删除、锁定和解锁操作，底层服务也会再次校验。设置中可以显示这些受保护的菜单项，但它们会保持灰色禁用，并显示不可用原因；开启此选项不会解除保护。此保护不依赖分支名，也不会创建 Git 锁。其他已锁定的关联工作区同样不能移动或删除。
 
 ### 语言与翻译设置
 

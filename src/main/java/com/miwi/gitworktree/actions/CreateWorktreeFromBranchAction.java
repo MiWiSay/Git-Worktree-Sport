@@ -147,10 +147,14 @@ public final class CreateWorktreeFromBranchAction extends GitSingleRefAction<Git
             WorktreeService.CreateConflict conflict = WorktreeService.inspectCreate(root, target, branch, checkBranchAvailability);
             return switch (conflict.type()) {
                 case NONE -> WorktreeService.CreateResolution.NORMAL;
-                case STALE_REGISTRATION -> choose(project,
-                        I18n.format("create.staleRegistration", target),
-                        I18n.text("title.resolveStale"), I18n.text("button.cleanAndCreate"), I18n.text("button.cancel")) == 0
-                        ? WorktreeService.CreateResolution.PRUNE_THEN_CREATE : null;
+                case STALE_REGISTRATION -> {
+                    String preview = WorktreeService.prunePreview(root);
+                    String details = preview.isBlank() ? I18n.text("prune.none") : preview;
+                    String message = I18n.format("create.staleRegistration", target) + "\n\n" + details;
+                    yield choose(project, message,
+                            I18n.text("title.resolveStale"), I18n.text("button.cleanAndCreate"), I18n.text("button.cancel")) == 0
+                            ? WorktreeService.CreateResolution.PRUNE_THEN_CREATE : null;
+                }
                 case ACTIVE_WORKTREE -> {
                     Messages.showWarningDialog(project,
                             I18n.format("create.activeWorktree", conflict.entry().path()), I18n.text("title.alreadyExists"));

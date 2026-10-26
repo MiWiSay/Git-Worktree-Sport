@@ -6,6 +6,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogBuilder;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.util.ui.JBUI;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -25,6 +26,7 @@ import javax.swing.KeyStroke;
 import javax.swing.UIManager;
 import javax.swing.ListSelectionModel;
 import javax.swing.BorderFactory;
+import javax.swing.border.TitledBorder;
 import javax.swing.AbstractAction;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableRowSorter;
@@ -60,14 +62,25 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
     private final JLabel languageLabel = new JLabel();
     private final JButton editTranslationsButton = new JButton();
     private final JButton editLanguageListButton = new JButton();
+    private final JCheckBox hideListHelpCheckBox = new JCheckBox();
+    private final JLabel hideListHelpHint = new JLabel();
+    private final JCheckBox showProtectedActionsCheckBox = new JCheckBox();
+    private final JLabel showProtectedActionsHint = new JLabel();
+    private final JLabel protectedActionsList = new JLabel();
+    private TitledBorder languageSectionBorder;
+    private TitledBorder displaySectionBorder;
     private JPanel settingsPanel;
     private boolean reloadingLanguageOptions;
     private final String originalLanguage;
+    private final boolean originalShowListHelp;
+    private final boolean originalShowProtectedActions;
 
     public WorktreeSettingsDialog(Project project) {
         super(project);
         this.project = project;
         this.originalLanguage = I18n.language();
+        this.originalShowListHelp = WorktreePreferences.showListHelp();
+        this.originalShowProtectedActions = WorktreePreferences.showProtectedActions();
         setTitle(I18n.text("settings.title"));
         reloadLanguageOptions();
         languageBox.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
@@ -90,18 +103,22 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
     }
 
     @Override protected JComponent createCenterPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
+        JPanel panel = new JPanel(new BorderLayout(0, 8));
         settingsPanel = panel;
+
+        JPanel languageSection = new JPanel(new GridBagLayout());
+        languageSectionBorder = BorderFactory.createTitledBorder(I18n.text("settings.section.language"));
+        languageSection.setBorder(languageSectionBorder);
         GridBagConstraints constraints = new GridBagConstraints();
-        constraints.insets = new Insets(4, 4, 4, 4);
+        constraints.insets = new Insets(4, 6, 4, 6);
         constraints.anchor = GridBagConstraints.WEST;
-        constraints.gridy = 0;
         constraints.gridx = 0;
-        panel.add(languageLabel, constraints);
+        constraints.gridy = 0;
+        languageSection.add(languageLabel, constraints);
         constraints.gridx = 1;
         constraints.weightx = 1;
         constraints.fill = GridBagConstraints.HORIZONTAL;
-        panel.add(languageBox, constraints);
+        languageSection.add(languageBox, constraints);
 
         editTranslationsButton.addActionListener(event -> editTranslations());
         editLanguageListButton.addActionListener(event -> editLanguageList());
@@ -113,7 +130,39 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         constraints.weightx = 1;
         constraints.fill = GridBagConstraints.NONE;
         constraints.anchor = GridBagConstraints.WEST;
-        panel.add(languageActionsPanel, constraints);
+        languageSection.add(languageActionsPanel, constraints);
+
+        JPanel displaySection = new JPanel(new GridBagLayout());
+        displaySectionBorder = BorderFactory.createTitledBorder(I18n.text("settings.section.display"));
+        displaySection.setBorder(displaySectionBorder);
+        hideListHelpCheckBox.setSelected(WorktreePreferences.showListHelp() == false);
+        hideListHelpCheckBox.addActionListener(event -> updateListHelpHint());
+        showProtectedActionsCheckBox.setSelected(WorktreePreferences.showProtectedActions());
+        showProtectedActionsCheckBox.addActionListener(event -> handleProtectedActionsToggle());
+        constraints = new GridBagConstraints();
+        constraints.insets = new Insets(4, 6, 2, 6);
+        constraints.gridx = 0;
+        constraints.gridy = 0;
+        constraints.weightx = 1;
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+        constraints.anchor = GridBagConstraints.WEST;
+        displaySection.add(hideListHelpCheckBox, constraints);
+        constraints.gridy = 1;
+        constraints.insets = new Insets(0, 28, 4, 6);
+        displaySection.add(hideListHelpHint, constraints);
+        constraints.gridy = 2;
+        constraints.insets = new Insets(8, 6, 2, 6);
+        displaySection.add(showProtectedActionsCheckBox, constraints);
+        constraints.gridy = 3;
+        constraints.insets = new Insets(0, 28, 2, 6);
+        displaySection.add(showProtectedActionsHint, constraints);
+        constraints.gridy = 4;
+        constraints.insets = new Insets(0, 28, 6, 6);
+        displaySection.add(protectedActionsList, constraints);
+
+        panel.setBorder(JBUI.Borders.empty(4));
+        panel.add(languageSection, BorderLayout.NORTH);
+        panel.add(displaySection, BorderLayout.CENTER);
 
         updateLabels();
         return panel;
@@ -139,6 +188,18 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         languageBox.setToolTipText(I18n.text("settings.languageHint"));
         editTranslationsButton.setText(I18n.text("settings.editLanguage"));
         editLanguageListButton.setText(I18n.text("settings.manageLanguages"));
+        if (languageSectionBorder != null) languageSectionBorder.setTitle(I18n.text("settings.section.language"));
+        if (displaySectionBorder != null) displaySectionBorder.setTitle(I18n.text("settings.section.display"));
+        hideListHelpCheckBox.setText(I18n.text("settings.hideListHelp"));
+        updateListHelpHint();
+        showProtectedActionsCheckBox.setText(I18n.text("settings.showProtectedActions"));
+        showProtectedActionsHint.setText("<html>" + I18n.text("settings.showProtectedActionsHint") + "</html>");
+        protectedActionsList.setText("<html>" + I18n.text("settings.protectedActionsList") + "</html>");
+        Color muted = UIManager.getColor("Label.disabledForeground");
+        if (muted != null) {
+            showProtectedActionsHint.setForeground(muted);
+            protectedActionsList.setForeground(muted);
+        }
         setOKButtonText(I18n.text("button.save"));
         setCancelButtonText(I18n.text("button.cancel"));
         languageBox.repaint();
@@ -153,7 +214,29 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
 
     @Override public void doCancelAction() {
         I18n.setLanguage(originalLanguage);
+        WorktreePreferences.setShowListHelp(originalShowListHelp);
+        WorktreePreferences.setShowProtectedActions(originalShowProtectedActions);
         super.doCancelAction();
+    }
+
+    @Override protected void doOKAction() {
+        WorktreePreferences.setShowListHelp(!hideListHelpCheckBox.isSelected());
+        WorktreePreferences.setShowProtectedActions(showProtectedActionsCheckBox.isSelected());
+        super.doOKAction();
+    }
+
+    private void updateListHelpHint() {
+        hideListHelpHint.setText("<html>" + I18n.text("settings.hideListHelpHint") + "</html>");
+        Color muted = UIManager.getColor("Label.disabledForeground");
+        if (muted != null) hideListHelpHint.setForeground(muted);
+    }
+
+    private void handleProtectedActionsToggle() {
+        if (!showProtectedActionsCheckBox.isSelected()) return;
+        int answer = Messages.showYesNoDialog(project,
+                I18n.text("confirm.showProtectedActions"),
+                I18n.text("title.confirm"), Messages.getWarningIcon());
+        if (answer != 0) showProtectedActionsCheckBox.setSelected(false);
     }
 
     private void editTranslations() {

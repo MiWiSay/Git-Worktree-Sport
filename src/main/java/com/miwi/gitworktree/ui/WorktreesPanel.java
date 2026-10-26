@@ -1,6 +1,7 @@
 package com.miwi.gitworktree.ui;
 
 import com.intellij.icons.AllIcons;
+import com.intellij.ProjectTopics;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileChooser.FileChooser;
@@ -8,6 +9,9 @@ import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.project.Project;
 import com.intellij.ide.impl.ProjectUtil;
 import com.intellij.openapi.progress.ProcessCanceledException;
+import com.intellij.openapi.roots.ModuleRootEvent;
+import com.intellij.openapi.roots.ModuleRootListener;
+import com.intellij.openapi.startup.StartupManager;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.ide.CopyPasteManager;
@@ -60,6 +64,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
     private final DefaultMutableTreeNode root = new DefaultMutableTreeNode(I18n.text("tree.repositories"));
     private final JTree tree = new JTree(new DefaultTreeModel(root));
     private final WorktreeHighlight highlight = new WorktreeHighlight(tree);
+    private final JLabel helpLabel = new JLabel();
     private Runnable pendingButtonAction;
     private final JButton refreshButton = new JButton(I18n.text("action.refresh"));
     private final JButton settingsButton = new JButton(AllIcons.General.Gear);
@@ -68,6 +73,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         pendingButtonAction = null;
         if (action != null) action.run();
     });
+    private final javax.swing.Timer startupRefreshTimer = new javax.swing.Timer(650, event -> refresh());
     private final Runnable languageListener = () -> SwingUtilities.invokeLater(this::updateLanguage);
     private List<WorktreeEntry> currentEntries = List.of();
     private long lastPopupWhen;
@@ -85,6 +91,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         tree.setShowsRootHandles(true);
         tree.setCellRenderer(new WorktreeRenderer());
         tree.setRowHeight(JBUI.scale(29));
+        startupRefreshTimer.setRepeats(false);
         refreshButton.setToolTipText(I18n.text("action.refresh"));
         refreshButton.addActionListener(event -> refresh());
         settingsButton.setToolTipText(I18n.text("settings.title"));
@@ -105,11 +112,20 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         toolbar.setBorder(JBUI.Borders.empty(4, 6));
         toolbar.add(toolbarActions, BorderLayout.WEST);
         add(toolbar, BorderLayout.NORTH);
-        add(new JScrollPane(tree), BorderLayout.CENTER);
+        JScrollPane treeScrollPane = new JScrollPane(tree);
+        JPanel content = new JPanel(new BorderLayout());
+        content.add(treeScrollPane, BorderLayout.CENTER);
+        helpLabel.setBorder(JBUI.Borders.empty(5, 10, 8, 10));
+        content.add(helpLabel, BorderLayout.SOUTH);
+        add(content, BorderLayout.CENTER);
 
-        tree.addMouseListener(new MouseAdapter() {
+        MouseAdapter contextListener = new MouseAdapter() {
             @Override public void mousePressed(MouseEvent event) { maybeShowPopup(event); }
             @Override public void mouseReleased(MouseEvent event) { maybeShowPopup(event); }
+        };
+        tree.addMouseListener(contextListener);
+        treeScrollPane.getViewport().addMouseListener(contextListener);
+        tree.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent event) {
                 if (!SwingUtilities.isLeftMouseButton(event)) return;
                 if (event.getClickCount() == 2) {
@@ -121,11 +137,40 @@ public final class WorktreesPanel extends JPanel implements Disposable {
             }
         });
         I18n.addLanguageListener(languageListener);
+        project.getMessageBus().connect(this).subscribe(ProjectTopics.PROJECT_ROOTS, new ModuleRootListener() {
+            @Override public void rootsChanged(ModuleRootEvent event) { scheduleStartupRefresh(); }
+        });
+        StartupManager startupManager = StartupManager.getInstance(project);
+        startupManager.runWhenProjectIsInitialized(this::scheduleStartupRefresh);
+        updateListHelp();
         refresh();
     }
 
     private void openSettings() {
         new WorktreeSettingsDialog(project).showAndGet();
+        updateListHelp();
+    }
+
+    private void scheduleStartupRefresh() {
+        if (disposed || project.isDisposed()) return;
+        Runnable schedule = () -> {
+            if (!disposed && !project.isDisposed()) startupRefreshTimer.restart();
+        };
+        if (ApplicationManager.getApplication().isDispatchThread()) schedule.run();
+        else ApplicationManager.getApplication().invokeLater(schedule);
+    }
+
+    private void updateListHelp() {
+        String first = escapeHtml(I18n.text("tree.help.worktreeItem"));
+        String second = escapeHtml(I18n.text("tree.help.emptySpace"));
+        helpLabel.setText("<html>" + first + "<br>" + second + "</html>");
+        Color muted = UIManager.getColor("Label.disabledForeground");
+        helpLabel.setForeground(muted == null ? tree.getForeground() : muted);
+        helpLabel.setVisible(WorktreePreferences.showListHelp());
+    }
+
+    private static String escapeHtml(String value) {
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     public void refresh() {
@@ -158,6 +203,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
     @Override public void dispose() {
         disposed = true;
         actionButtonClickTimer.stop();
+        startupRefreshTimer.stop();
         pendingButtonAction = null;
         I18n.removeLanguageListener(languageListener);
         if (SwingUtilities.isEventDispatchThread()) highlight.close();
@@ -187,7 +233,9 @@ public final class WorktreesPanel extends JPanel implements Disposable {
                 }
                 for (WorktreeEntry entry : sameName) {
                     DefaultMutableTreeNode worktreeNode = new DefaultMutableTreeNode(entry);
-                    worktreeNode.add(new DefaultMutableTreeNode(new OpenWorktreeButtons(entry)));
+                    if (WorktreeService.canOpenWorktree(entry) || WorktreeService.canOpenFolder(entry)) {
+                        worktreeNode.add(new DefaultMutableTreeNode(new OpenWorktreeButtons(entry)));
+                    }
                     worktreeNode.add(detail("detail.type", classification(entry)));
                     worktreeNode.add(detail("detail.bare", yesNo(entry.bare())));
                     worktreeNode.add(detail("detail.locked", yesNo(entry.effectivelyLocked())));
@@ -221,6 +269,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         refreshButton.setText(I18n.text("action.refresh"));
         refreshButton.setToolTipText(I18n.text("action.refresh"));
         settingsButton.setToolTipText(I18n.text("settings.title"));
+        updateListHelp();
         rebuild(currentEntries);
     }
 
@@ -232,31 +281,39 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         lastPopupX = event.getX();
         lastPopupY = event.getY();
 
-        TreePath path = tree.getPathForLocation(event.getX(), event.getY());
+        java.awt.Point point = SwingUtilities.convertPoint(event.getComponent(), event.getPoint(), tree);
+        TreePath path = WorktreeTreeHit.pathAt(tree, point);
         if (path == null) {
             tree.clearSelection();
             BranchCreationPopup.show(project, event);
             return;
         }
-        java.awt.Rectangle bounds = tree.getPathBounds(path);
-        if (bounds == null || event.getY() < bounds.y || event.getY() >= bounds.y + bounds.height) return;
         tree.setSelectionPath(path);
         Object value = ((DefaultMutableTreeNode) path.getLastPathComponent()).getUserObject();
         JPopupMenu menu = new JPopupMenu();
         if (value instanceof WorktreeEntry entry) {
-            if (!entry.protectedFromOpenWorktree()) add(menu, "action.openWorktree", () -> openWorktree(entry));
-            add(menu, "action.open", () -> open(entry));
-            if (!entry.protectedFromGitLockChanges()) {
+            if (WorktreeService.canOpenWorktree(entry)) add(menu, "action.openWorktree", () -> openWorktree(entry));
+            if (WorktreeService.canOpenFolder(entry)) add(menu, "action.open", () -> open(entry));
+            if (WorktreeService.canChangeGitLock(entry)) {
                 if (entry.locked()) add(menu, "action.unlock", () -> unlock(entry));
                 else add(menu, "action.lock", () -> lock(entry));
+            } else if (WorktreePreferences.showProtectedActions()) {
+                String reason = WorktreeService.protectedActionReason(entry, "lock");
+                addDisabled(menu, "action.lock", reason);
+                addDisabled(menu, "action.unlock", reason);
             }
             menu.addSeparator();
             add(menu, "action.repair", () -> repair(entry));
-            if (entry.cleanupDeleteAction() == WorktreeEntry.CleanupDeleteAction.PRUNE) {
+            WorktreeEntry.CleanupDeleteAction cleanupAction = WorktreeService.cleanupDeleteAction(entry);
+            if (cleanupAction == WorktreeEntry.CleanupDeleteAction.PRUNE) {
                 add(menu, "action.prune", () -> prune(entry));
-            } else if (entry.cleanupDeleteAction() == WorktreeEntry.CleanupDeleteAction.DELETE) {
+            } else if (cleanupAction == WorktreeEntry.CleanupDeleteAction.DELETE) {
                 add(menu, "action.move", () -> move(entry));
                 add(menu, "action.delete", () -> delete(entry));
+            } else if (WorktreePreferences.showProtectedActions()) {
+                addDisabled(menu, "action.prune", WorktreeService.protectedActionReason(entry, "prune"));
+                addDisabled(menu, "action.move", WorktreeService.protectedActionReason(entry, "move"));
+                addDisabled(menu, "action.delete", WorktreeService.protectedActionReason(entry, "delete"));
             }
         } else if (value instanceof RepositoryLabel) {
             add(menu, "action.refresh", this::refresh);
@@ -267,7 +324,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
             add(menu, "action.copyValue", () -> CopyPasteManager.getInstance()
                     .setContents(new java.awt.datatransfer.StringSelection(detail.value())));
         }
-        if (menu.getComponentCount() > 0) menu.show(tree, event.getX(), event.getY());
+        if (menu.getComponentCount() > 0) menu.show(event.getComponent(), event.getX(), event.getY());
     }
 
     private void add(JPopupMenu menu, String key, Runnable callback) {
@@ -277,6 +334,17 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         Dimension preferredSize = item.getPreferredSize();
         item.setPreferredSize(new Dimension(preferredSize.width, Math.max(36, preferredSize.height)));
         item.addActionListener(event -> callback.run());
+        menu.add(item);
+    }
+
+    private void addDisabled(JPopupMenu menu, String key, String reason) {
+        JMenuItem item = new JMenuItem(I18n.text(key));
+        item.setMargin(new Insets(7, 12, 7, 12));
+        item.setFont(item.getFont().deriveFont(item.getFont().getSize2D() + 1f));
+        Dimension preferredSize = item.getPreferredSize();
+        item.setPreferredSize(new Dimension(preferredSize.width, Math.max(36, preferredSize.height)));
+        item.setEnabled(false);
+        item.setToolTipText(reason);
         menu.add(item);
     }
 
@@ -296,14 +364,15 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         java.awt.Rectangle bounds = tree.getPathBounds(path);
         if (bounds == null) return;
         int localX = event.getX() - bounds.x;
-        boolean hasOpenWorktree = !buttons.entry().protectedFromOpenWorktree();
+        boolean hasOpenWorktree = WorktreeService.canOpenWorktree(buttons.entry());
+        boolean hasOpenFolder = WorktreeService.canOpenFolder(buttons.entry());
         int openWidth = hasOpenWorktree ? buttonWidth(I18n.text("action.openWorktree")) : 0;
-        int folderWidth = buttonWidth(I18n.text("detail.openFolderButton"));
+        int folderWidth = hasOpenFolder ? buttonWidth(I18n.text("detail.openFolderButton")) : 0;
         int firstStart = 4;
         int folderStart = hasOpenWorktree ? firstStart + openWidth + JBUI.scale(8) : firstStart;
         if (hasOpenWorktree && localX >= firstStart && localX <= firstStart + openWidth) {
             pendingButtonAction = () -> openWorktree(buttons.entry());
-        } else if (localX >= folderStart && localX <= folderStart + folderWidth) {
+        } else if (hasOpenFolder && localX >= folderStart && localX <= folderStart + folderWidth) {
             pendingButtonAction = () -> open(buttons.entry());
         } else {
             pendingButtonAction = null;
@@ -336,31 +405,51 @@ public final class WorktreesPanel extends JPanel implements Disposable {
             Messages.showWarningDialog(project, I18n.text("error.selectWorktree"), I18n.text("title.manager"));
             return;
         }
-        if (entry.protectedFromGitLockChanges() && (operation.equals("lock") || operation.equals("unlock"))) {
+        boolean currentProject = WorktreeService.isCurrentProjectWorktree(entry);
+        if (!WorktreeService.canChangeGitLock(entry) && (operation.equals("lock") || operation.equals("unlock"))) {
             String key = entry.main()
                     ? (operation.equals("lock") ? "error.mainLockOperation" : "error.mainCannotUnlock")
                     : "error.currentWorktreeProtected";
             Messages.showWarningDialog(project, I18n.text(key), I18n.text(operation.equals("lock") ? "action.lock" : "action.unlock"));
             return;
         }
-        if (entry.protectedFromPrune() && operation.equals("prune")) {
+        if ((entry.main() || currentProject) && operation.equals("prune")) {
             String key = entry.main() ? "error.mainProtectedPrune" : "error.currentWorktreeProtected";
             Messages.showWarningDialog(project, I18n.text(key), I18n.text("action.prune"));
             return;
         }
-        if (operation.equals("prune") && entry.cleanupDeleteAction() != WorktreeEntry.CleanupDeleteAction.PRUNE) {
-            Messages.showWarningDialog(project, I18n.text("error.pruneHealthyWorktree"), I18n.text("action.prune"));
+        WorktreeEntry.CleanupDeleteAction cleanupAction = WorktreeService.cleanupDeleteAction(entry);
+        if (operation.equals("prune") && cleanupAction != WorktreeEntry.CleanupDeleteAction.PRUNE) {
+            String key = entry.main() ? "error.mainProtectedPrune"
+                    : currentProject ? "error.currentWorktreeProtected"
+                    : entry.locked() ? "error.lockedProtected" : "error.pruneHealthyWorktree";
+            Messages.showWarningDialog(project, I18n.text(key), I18n.text("action.prune"));
             return;
         }
-        if (operation.equals("delete") && entry.cleanupDeleteAction() != WorktreeEntry.CleanupDeleteAction.DELETE) {
-            Messages.showWarningDialog(project, I18n.text("error.deleteStaleWorktree"), I18n.text("action.delete"));
-            return;
-        }
-        if (entry.protectedFromMoveOrDelete() && (operation.equals("move") || operation.equals("delete"))) {
+        if ((entry.main() || currentProject || entry.locked())
+                && (operation.equals("move") || operation.equals("delete"))) {
             String key = entry.main()
                     ? (operation.equals("move") ? "confirm.moveMain" : "confirm.deleteMain")
-                    : entry.currentProject() ? "error.currentWorktreeProtected" : "error.lockedProtected";
+                    : currentProject ? "error.currentWorktreeProtected" : "error.lockedProtected";
             Messages.showWarningDialog(project, I18n.text(key), I18n.text("title.manager"));
+            return;
+        }
+        if ((operation.equals("move") || operation.equals("delete"))
+                && cleanupAction != WorktreeEntry.CleanupDeleteAction.DELETE) {
+            String actionKey = operation.equals("move") ? "action.move" : "action.delete";
+            Messages.showWarningDialog(project, I18n.text("error.deleteStaleWorktree"), I18n.text(actionKey));
+            return;
+        }
+        if (operation.equals("openWorktree") && !WorktreeService.canOpenWorktree(entry)) {
+            if (entry.bare()) return;
+            String key = currentProject ? "error.currentWorktreeProtected"
+                    : entry.pathExists() ? "error.targetNotDirectory" : "error.missingPath";
+            Messages.showWarningDialog(project, I18n.text(key) + "\n" + entry.path(), I18n.text("action.openWorktree"));
+            return;
+        }
+        if (operation.equals("open") && !WorktreeService.canOpenFolder(entry)) {
+            String key = entry.pathExists() ? "error.targetNotDirectory" : "error.missingPath";
+            Messages.showWarningDialog(project, I18n.text(key) + "\n" + entry.path(), I18n.text("action.open"));
             return;
         }
         switch (operation) {
@@ -378,7 +467,10 @@ public final class WorktreesPanel extends JPanel implements Disposable {
 
     private void open(WorktreeEntry entry) {
         try {
-            if (!entry.pathExists()) throw new IllegalStateException(I18n.text("error.missingPath") + "\n" + entry.path());
+            if (!WorktreeService.canOpenFolder(entry)) {
+                String error = entry.pathExists() ? I18n.text("error.targetNotDirectory") : I18n.text("error.missingPath");
+                throw new IllegalStateException(error + "\n" + entry.path());
+            }
             Desktop.getDesktop().open(new File(entry.path()));
         } catch (Exception e) {
             Messages.showErrorDialog(project, message(e), I18n.text("action.open"));
@@ -387,7 +479,10 @@ public final class WorktreesPanel extends JPanel implements Disposable {
 
     private void openWorktree(WorktreeEntry entry) {
         try {
+            if (WorktreeService.isCurrentProjectWorktree(entry)) return;
+            if (entry.bare()) return;
             if (!entry.pathExists()) throw new IllegalStateException(I18n.text("error.missingPath") + "\n" + entry.path());
+            if (!entry.canOpenWorktree()) throw new IllegalStateException(I18n.text("error.targetNotDirectory") + "\n" + entry.path());
             if (ProjectUtil.openOrImport(Path.of(entry.path()), project, false) == null) {
                 throw new IllegalStateException(I18n.text("error.openProjectCancelled"));
             }
@@ -407,13 +502,15 @@ public final class WorktreesPanel extends JPanel implements Disposable {
     }
 
     private void prune(WorktreeEntry entry) {
-        if (entry.protectedFromPrune()) {
-            String key = entry.main() ? "error.mainProtectedPrune" : "error.currentWorktreeProtected";
+        if (entry.main() || WorktreeService.isCurrentProjectWorktree(entry) || entry.locked()) {
+            String key = entry.main() ? "error.mainProtectedPrune"
+                    : WorktreeService.isCurrentProjectWorktree(entry) ? "error.currentWorktreeProtected" : "error.lockedProtected";
             Messages.showWarningDialog(project, I18n.text(key), I18n.text("action.prune"));
             return;
         }
-        if (entry.cleanupDeleteAction() != WorktreeEntry.CleanupDeleteAction.PRUNE) {
-            Messages.showWarningDialog(project, I18n.text("error.pruneHealthyWorktree"), I18n.text("action.prune"));
+        if (WorktreeService.cleanupDeleteAction(entry) != WorktreeEntry.CleanupDeleteAction.PRUNE) {
+            Messages.showWarningDialog(project, I18n.text(entry.locked() ? "error.lockedProtected" : "error.pruneHealthyWorktree"),
+                    I18n.text("action.prune"));
             return;
         }
         try {
@@ -432,7 +529,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
     }
 
     private void lock(WorktreeEntry entry) {
-        if (entry.protectedFromGitLockChanges()) {
+        if (!WorktreeService.canChangeGitLock(entry)) {
             String key = entry.main() ? "status.mainLocked" : "error.currentWorktreeProtected";
             Messages.showInfoMessage(project, I18n.text(key), I18n.text("action.lock"));
             return;
@@ -442,7 +539,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
     }
 
     private void unlock(WorktreeEntry entry) {
-        if (entry.protectedFromGitLockChanges()) {
+        if (!WorktreeService.canChangeGitLock(entry)) {
             String key = entry.main() ? "error.mainCannotUnlock" : "error.currentWorktreeProtected";
             Messages.showWarningDialog(project, I18n.text(key), I18n.text("action.unlock"));
             return;
@@ -452,9 +549,14 @@ public final class WorktreesPanel extends JPanel implements Disposable {
     }
 
     private void move(WorktreeEntry entry) {
-        if (entry.protectedFromMoveOrDelete()) {
+        WorktreeEntry.CleanupDeleteAction action = WorktreeService.cleanupDeleteAction(entry);
+        if (action != WorktreeEntry.CleanupDeleteAction.DELETE) {
+            if (action == WorktreeEntry.CleanupDeleteAction.PRUNE) {
+                Messages.showWarningDialog(project, I18n.text("error.deleteStaleWorktree"), I18n.text("action.move"));
+                return;
+            }
             String key = entry.main() ? "confirm.moveMain"
-                    : entry.currentProject() ? "error.currentWorktreeProtected" : "error.lockedProtected";
+                    : WorktreeService.isCurrentProjectWorktree(entry) ? "error.currentWorktreeProtected" : "error.lockedProtected";
             Messages.showWarningDialog(project, I18n.text(key), I18n.text("action.move"));
             return;
         }
@@ -467,13 +569,13 @@ public final class WorktreesPanel extends JPanel implements Disposable {
     }
 
     private void delete(WorktreeEntry entry) {
-        if (entry.protectedFromMoveOrDelete()) {
+        if (WorktreeService.cleanupDeleteAction(entry) == WorktreeEntry.CleanupDeleteAction.PROTECTED) {
             String key = entry.main() ? "confirm.deleteMain"
-                    : entry.currentProject() ? "error.currentWorktreeProtected" : "error.lockedProtected";
+                    : WorktreeService.isCurrentProjectWorktree(entry) ? "error.currentWorktreeProtected" : "error.lockedProtected";
             Messages.showWarningDialog(project, I18n.text(key), I18n.text("action.delete"));
             return;
         }
-        if (entry.cleanupDeleteAction() != WorktreeEntry.CleanupDeleteAction.DELETE) {
+        if (WorktreeService.cleanupDeleteAction(entry) != WorktreeEntry.CleanupDeleteAction.DELETE) {
             Messages.showWarningDialog(project, I18n.text("error.deleteStaleWorktree"), I18n.text("action.delete"));
             return;
         }
@@ -629,11 +731,13 @@ public final class WorktreesPanel extends JPanel implements Disposable {
                 JPanel actions = new JPanel();
                 actions.setOpaque(false);
                 actions.setLayout(new javax.swing.BoxLayout(actions, javax.swing.BoxLayout.X_AXIS));
-                if (!buttons.entry().protectedFromOpenWorktree()) {
+                if (WorktreeService.canOpenWorktree(buttons.entry())) {
                     actions.add(actionButton("action.openWorktree", foreground));
                     actions.add(Box.createHorizontalStrut(JBUI.scale(8)));
                 }
-                actions.add(actionButton("detail.openFolderButton", foreground));
+                if (WorktreeService.canOpenFolder(buttons.entry())) {
+                    actions.add(actionButton("detail.openFolderButton", foreground));
+                }
                 content.add(Box.createHorizontalStrut(2));
                 content.add(actions);
             } else if (item instanceof WorktreeDetail detail) {
