@@ -1,6 +1,27 @@
 # Git Worktree Sport
 ![](https://plugins.jetbrains.com/files/35384/63552-page/51475f4a-8e8b-4e23-8de2-081e8e4465ef)
+
 **Languages:** [English](README.md) | [简体中文](README.zh-CN.md)
+
+---
+
+🎉 **I've joined Afdian!**
+
+Hi everyone! I'm MiWi, a software engineer passionate about developer tools and productivity.
+
+I'm the creator of **Git Worktree Sport**, a plugin for JetBrains IDEs that makes managing Git worktrees easier, helping developers work with multiple branches and projects more efficiently.
+
+I'm committed to continuously improving the plugin, refining its user experience, and building practical tools that make everyday development workflows smoother.
+
+I've now set up an Afdian page for anyone who would like to support my work. If you find my plugin useful, consider stopping by! Every bit of support helps me dedicate more time to development, maintenance, and future improvements.
+
+☕ **Support my work:** https://afdian.com/a/miwisay
+
+🛠️ **JetBrains Marketplace:** https://plugins.jetbrains.com/plugin/35384-git-worktree-sport
+
+Thank you for using my plugin, sharing feedback, and supporting independent development. Every bit of encouragement means a lot!
+
+---
 
 **JetBrains Marketplace:** [Git Worktree Sport](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport) · [GitHub source](https://github.com/MiWiSay/Git-Worktree-Sport)
 
