@@ -80,7 +80,7 @@ Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android 
 使用刷新按钮旁的设置按钮，可跟随 IDE 语言或选择插件语言。当前内置语言：**英语、简体中文、繁体中文、日语、韩语、德语、法语、西班牙语、巴西葡萄牙语、俄语**。
 
 翻译编辑器以表格展示内容，key 不可修改、value 可编辑，并支持 `Ctrl+F` 搜索、按 `key=value` 文本导入和导出。导入时会检查重复、未知及缺失 key。可以新增语言、修改语言名，或删除用户新增的语言；取消未保存的编辑可以整体还原本轮更改。
-![](https://plugins.jetbrains.com/files/35384/63552-page/c689edfb-b6e0-4563-96e5-61200c5bb090)
+![](https://plugins.jetbrains.com/files/35384/63552-page/6eed5643-50b6-4499-bbaa-704e10940f13)
 ![](https://plugins.jetbrains.com/files/35384/63552-page/42db4b27-0573-48b3-bca2-b6ca18bd205f)
 ![](https://plugins.jetbrains.com/files/35384/63552-page/bc0062e9-beed-4b4b-889d-6a0ad23d15e0)
 
