@@ -1,6 +1,27 @@
 # Git Worktree Sport
 ![](https://plugins.jetbrains.com/files/35384/63552-page/51475f4a-8e8b-4e23-8de2-081e8e4465ef)
+
 **语言 / Languages:** [简体中文](README.zh-CN.md) | [English](README.md)
+
+---
+
+🎉 **正式入驻爱发电！**
+
+大家好，我是 MiWi，一名热衷于开发效率工具的软件工程师。
+
+目前我正在开发和维护 **Git Worktree Sport**，一款面向 JetBrains IDE 的 Git Worktree 管理插件，旨在帮助开发者更轻松地管理多个 Worktree，在不同项目和 Git 分支之间高效切换与协作。
+
+我会持续完善插件功能、优化使用体验，并不断探索能够改善日常开发流程的实用工具。
+
+现在，我也开通了爱发电主页。如果你觉得我的插件对你有所帮助，欢迎来主页看看。每一份支持，都是我继续开发、维护和改进项目的动力，也让我能够投入更多时间打磨工具、完善细节。
+
+☕ **爱发电主页：** https://afdian.com/a/miwisay
+
+🛠️ **JetBrains 插件主页：** https://plugins.jetbrains.com/plugin/35384-git-worktree-sport
+
+感谢每一位使用插件、提出建议和支持独立开发的朋友！希望这些小工具能让大家的开发工作更轻松一些。❤️
+
+---
 
 **JetBrains 插件广场：**[Git Worktree Sport](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport) · [GitHub 源码](https://github.com/MiWiSay/Git-Worktree-Sport)
 
