@@ -79,7 +79,7 @@ The main worktree's badge remains green when Git reports it as unlocked. The mai
 You can use the settings button next to the refresh button to follow the IDE language or choose the plugin language. Built-in languages include: **English, Simplified Chinese, Traditional Chinese, Japanese, Korean, German, French, Spanish, Brazilian Portuguese, Russian**.
 
 The translation editor displays content in a table where keys cannot be modified, values can be edited, and it supports `Ctrl+F` searching, importing and exporting text in `key=value` format. It checks for duplicates, unknown, and missing keys during import. You can add a new language, change a language name, or delete user-added languages; unsaved edits can be reverted to restore changes from the current session.
-![](https://plugins.jetbrains.com/files/35384/63552-page/c689edfb-b6e0-4563-96e5-61200c5bb090)
+![](https://plugins.jetbrains.com/files/35384/63552-page/6eed5643-50b6-4499-bbaa-704e10940f13)
 ![](https://plugins.jetbrains.com/files/35384/63552-page/42db4b27-0573-48b3-bca2-b6ca18bd205f)
 ![](https://plugins.jetbrains.com/files/35384/63552-page/bc0062e9-beed-4b4b-889d-6a0ad23d15e0)
 
