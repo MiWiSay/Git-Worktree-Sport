@@ -9,7 +9,18 @@ const embedded = descriptor.match(/<description><!\[CDATA\[\s*([\s\S]*?)\s*\]\]>
 assert(embedded?.trim(), 'Plugin descriptor contains an Overview description');
 assert(!descriptor.includes('example.invalid'), 'Placeholder vendor contact removed');
 assert(descriptor.includes('<id>com.miwi.talkinas.gitworktree</id>'), 'Existing installed plugin identity remains stable');
-assert(descriptor.includes('<version>1.0.3</version>'), 'Plugin descriptor carries release version 1.0.3');
+assert(descriptor.includes('<version>1.0.4</version>'), 'Plugin descriptor carries release version 1.0.4');
+const releaseVersion = descriptor.match(/<version>([^<]+)<\/version>/)[1];
+const buildScript = fs.readFileSync(path.join(root, 'build.gradle.kts'), 'utf8');
+assert(buildScript.includes(`version = "${releaseVersion}"`), 'Build and descriptor versions match');
+for (const readmeFile of ['README.md', 'README.zh-CN.md']) {
+  const readme = fs.readFileSync(path.join(root, readmeFile), 'utf8');
+  // README is maintained independently on GitHub; preserve its chosen download version and media URLs.
+  const download = readme.match(/\]\((outputs\/Git%20Worktree%20Sport-[^)]+\.zip)\)/)?.[1];
+  assert(download, 'README includes a plugin download');
+  assert(fs.existsSync(path.join(root, decodeURIComponent(download))), 'README download target remains available');
+  assert(readme.includes('https://plugins.jetbrains.com/plugin/35384-git-worktree-sport'), 'README includes Marketplace destination');
+}
 const overviewRoot = path.join(root, 'docs/overview');
 const descriptionPath = path.join(overviewRoot, 'description.html');
 const guidePath = path.join(overviewRoot, 'index.html');

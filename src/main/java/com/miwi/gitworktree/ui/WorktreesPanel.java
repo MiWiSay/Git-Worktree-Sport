@@ -1,26 +1,35 @@
 package com.miwi.gitworktree.ui;
 
 import com.intellij.icons.AllIcons;
-import com.intellij.ProjectTopics;
+import com.intellij.dvcs.repo.VcsRepositoryManager;
+import com.intellij.dvcs.repo.VcsRepositoryMappingListener;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.externalSystem.service.project.manage.ProjectDataImportListener;
+import com.intellij.openapi.externalSystem.model.task.ExternalSystemTaskType;
+import com.intellij.openapi.externalSystem.service.internal.ExternalSystemProcessingManager;
 import com.intellij.openapi.fileChooser.FileChooser;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
+import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectManager;
 import com.intellij.ide.impl.ProjectUtil;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.roots.ModuleRootEvent;
 import com.intellij.openapi.roots.ModuleRootListener;
-import com.intellij.openapi.startup.StartupManager;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.ide.CopyPasteManager;
+import com.intellij.openapi.vcs.ProjectLevelVcsManager;
+import com.intellij.openapi.vcs.VcsMappingListener;
 import com.intellij.ui.JBColor;
 import com.intellij.util.ui.JBUI;
 import com.miwi.gitworktree.model.WorktreeEntry;
 import com.miwi.gitworktree.service.ModalOperation;
 import com.miwi.gitworktree.service.WorktreeService;
 import com.miwi.gitworktree.service.WorktreeRemovalPolicy;
+import git4idea.repo.GitRepository;
+import git4idea.repo.GitRepositoryChangeListener;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -73,13 +82,16 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         pendingButtonAction = null;
         if (action != null) action.run();
     });
-    private final javax.swing.Timer startupRefreshTimer = new javax.swing.Timer(650, event -> refresh());
+    private final javax.swing.Timer startupRefreshTimer = new javax.swing.Timer(650, event -> runStartupRefresh());
     private final Runnable languageListener = () -> SwingUtilities.invokeLater(this::updateLanguage);
     private List<WorktreeEntry> currentEntries = List.of();
     private long lastPopupWhen;
     private int lastPopupX;
     private int lastPopupY;
     private long refreshVersion;
+    private boolean loading;
+    private volatile long startupRetryUntil;
+    private volatile boolean importInProgress;
     private volatile boolean disposed;
 
     public WorktreesPanel(Project project) {
@@ -137,12 +149,59 @@ public final class WorktreesPanel extends JPanel implements Disposable {
             }
         });
         I18n.addLanguageListener(languageListener);
-        project.getMessageBus().connect(this).subscribe(ProjectTopics.PROJECT_ROOTS, new ModuleRootListener() {
+        project.getMessageBus().connect(this).subscribe(ModuleRootListener.TOPIC, new ModuleRootListener() {
             @Override public void rootsChanged(ModuleRootEvent event) { scheduleStartupRefresh(); }
         });
-        StartupManager startupManager = StartupManager.getInstance(project);
-        startupManager.runWhenProjectIsInitialized(this::scheduleStartupRefresh);
+        project.getMessageBus().connect(this).subscribe(ProjectDataImportListener.TOPIC, new ProjectDataImportListener() {
+            @Override public void onImportStarted(String projectPath) {
+                importInProgress = true;
+                startupRetryUntil = System.currentTimeMillis() + 120_000L;
+                showLoadingOnUiThread();
+            }
+            @Override public void onImportFinished(String projectPath) {
+                importInProgress = false;
+                startupRetryUntil = System.currentTimeMillis() + 30_000L;
+                scheduleStartupRefresh();
+            }
+            @Override public void onFinalTasksFinished(String projectPath) {
+                importInProgress = false;
+                startupRetryUntil = System.currentTimeMillis() + 30_000L;
+                scheduleStartupRefresh();
+            }
+            @Override public void onImportFailed(String projectPath, Throwable error) {
+                importInProgress = false;
+                startupRetryUntil = System.currentTimeMillis() + 30_000L;
+                scheduleStartupRefresh();
+            }
+        });
+        project.getMessageBus().connect(this).subscribe(GitRepository.GIT_REPO_CHANGE, new GitRepositoryChangeListener() {
+            @Override public void repositoryChanged(GitRepository repository) {
+                startupRetryUntil = System.currentTimeMillis() + 30_000L;
+                scheduleStartupRefresh();
+            }
+        });
+        project.getMessageBus().connect(this).subscribe(ProjectLevelVcsManager.VCS_CONFIGURATION_CHANGED,
+                (VcsMappingListener) () -> {
+                    startupRetryUntil = System.currentTimeMillis() + 30_000L;
+                    scheduleStartupRefresh();
+                });
+        project.getMessageBus().connect(this).subscribe(VcsRepositoryManager.VCS_REPOSITORY_MAPPING_UPDATED,
+                (VcsRepositoryMappingListener) () -> {
+                    startupRetryUntil = System.currentTimeMillis() + 30_000L;
+                    scheduleStartupRefresh();
+                });
+        project.getMessageBus().connect(this).subscribe(DumbService.DUMB_MODE, new DumbService.DumbModeListener() {
+            @Override public void enteredDumbMode() { showLoadingOnUiThread(); }
+            @Override public void exitDumbMode() {
+                startupRetryUntil = System.currentTimeMillis() + 30_000L;
+                scheduleStartupRefresh();
+            }
+        });
         updateListHelp();
+        startupRetryUntil = System.currentTimeMillis() + 120_000L;
+        importInProgress = isExternalImportInProgress();
+        ProjectLevelVcsManager.getInstance(project).runAfterInitialization(this::scheduleStartupRefresh);
+        showLoading();
         refresh();
     }
 
@@ -160,6 +219,87 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         else ApplicationManager.getApplication().invokeLater(schedule);
     }
 
+    private void runStartupRefresh() {
+        if (disposed || project.isDisposed()) return;
+        if (!repositoryScanReady()) {
+            showLoading();
+            startupRefreshTimer.restart();
+            return;
+        }
+        if (!hasGitRepositories()) {
+            if (isWaitingForRepositoryInitialization()) {
+                showLoading();
+                startupRefreshTimer.restart();
+                return;
+            }
+        }
+        refresh();
+    }
+
+    /**
+     * Git repositories can be temporarily unavailable while the IDE is opening a project or indexing it.
+     * Do not turn that transient state into the permanent "no repositories" message.
+     */
+    private boolean repositoryScanReady() {
+        if (!project.isInitialized() || DumbService.getInstance(project).isDumb()) return false;
+        Project[] openProjects = ProjectManager.getInstance().getOpenProjects();
+        for (Project openProject : openProjects) {
+            if (openProject.isDisposed()) continue;
+            if (!openProject.isInitialized() || DumbService.getInstance(openProject).isDumb()) return false;
+        }
+        return true;
+    }
+
+    private boolean hasGitRepositories() {
+        for (Project openProject : ProjectManager.getInstance().getOpenProjects()) {
+            if (openProject.isDisposed()) continue;
+            if (!git4idea.repo.GitRepositoryManager.getInstance(openProject).getRepositories().isEmpty()) return true;
+        }
+        return !git4idea.repo.GitRepositoryManager.getInstance(project).getRepositories().isEmpty();
+    }
+
+    private boolean isExternalImportInProgress() {
+        if (importInProgress) return true;
+        try {
+            return ExternalSystemProcessingManager.getInstance().hasTaskOfTypeInProgress(
+                    ExternalSystemTaskType.RESOLVE_PROJECT, project);
+        } catch (RuntimeException ignored) {
+            // Some IDE builds do not expose the external-system service during early startup.
+            return false;
+        }
+    }
+
+    private boolean hasPotentialGitRepository() {
+        for (Project openProject : ProjectManager.getInstance().getOpenProjects()) {
+            if (openProject.isDisposed()) continue;
+            String basePath = openProject.getBasePath();
+            if (basePath != null && java.nio.file.Files.exists(Path.of(basePath, ".git"))) return true;
+            if (!git4idea.repo.GitRepositoryManager.getInstance(openProject).getRepositories().isEmpty()) return true;
+        }
+        return false;
+    }
+
+    private boolean isWaitingForRepositoryInitialization() {
+        return isExternalImportInProgress()
+                || (hasPotentialGitRepository() && System.currentTimeMillis() < startupRetryUntil);
+    }
+
+    private void showLoadingOnUiThread() {
+        if (ApplicationManager.getApplication().isDispatchThread()) showLoading();
+        else ApplicationManager.getApplication().invokeLater(this::showLoading);
+    }
+
+    private void showLoading() {
+        if (disposed || project.isDisposed()) return;
+        loading = true;
+        currentEntries = List.of();
+        root.removeAllChildren();
+        root.add(new DefaultMutableTreeNode(new RootLabel(I18n.text("tree.loading"))));
+        ((DefaultTreeModel) tree.getModel()).reload();
+        refreshButton.setEnabled(false);
+        highlight.afterRebuild(root);
+    }
+
     private void updateListHelp() {
         String first = escapeHtml(I18n.text("tree.help.worktreeItem"));
         String second = escapeHtml(I18n.text("tree.help.emptySpace"));
@@ -175,6 +315,16 @@ public final class WorktreesPanel extends JPanel implements Disposable {
 
     public void refresh() {
         if (disposed || project.isDisposed()) return;
+        if (!repositoryScanReady()) {
+            showLoading();
+            scheduleStartupRefresh();
+            return;
+        }
+        if (currentEntries.isEmpty() && !hasGitRepositories() && isWaitingForRepositoryInitialization()) {
+            showLoading();
+            scheduleStartupRefresh();
+            return;
+        }
         long version = ++refreshVersion;
         refreshButton.setEnabled(false);
         ApplicationManager.getApplication().executeOnPooledThread(() -> {
@@ -182,11 +332,22 @@ public final class WorktreesPanel extends JPanel implements Disposable {
                 List<WorktreeEntry> entries = WorktreeService.list(project);
                 ApplicationManager.getApplication().invokeLater(() -> {
                     // 首次显示与创建完成可能同时刷新，迟到的旧结果不能覆盖新列表。
-                    if (!disposed && !project.isDisposed() && version == refreshVersion) rebuild(entries);
+                    if (disposed || project.isDisposed() || version != refreshVersion) return;
+                    if (!repositoryScanReady()) {
+                        showLoading();
+                        scheduleStartupRefresh();
+                        return;
+                    }
+                    rebuild(entries);
                 });
             } catch (Exception e) {
                 ApplicationManager.getApplication().invokeLater(() -> {
                     if (disposed || project.isDisposed() || version != refreshVersion) return;
+                    if (!repositoryScanReady()) {
+                        showLoading();
+                        scheduleStartupRefresh();
+                        return;
+                    }
                     refreshButton.setEnabled(true);
                     Messages.showErrorDialog(project, message(e), I18n.text("title.manager"));
                 });
@@ -211,6 +372,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
     }
 
     private void rebuild(List<WorktreeEntry> entries) {
+        loading = false;
         currentEntries = List.copyOf(entries);
         root.removeAllChildren();
         Map<String, List<WorktreeEntry>> grouped = new LinkedHashMap<>();
@@ -270,7 +432,8 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         refreshButton.setToolTipText(I18n.text("action.refresh"));
         settingsButton.setToolTipText(I18n.text("settings.title"));
         updateListHelp();
-        rebuild(currentEntries);
+        if (loading) showLoading();
+        else rebuild(currentEntries);
     }
 
     private void maybeShowPopup(MouseEvent event) {
@@ -294,27 +457,18 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         if (value instanceof WorktreeEntry entry) {
             if (WorktreeService.canOpenWorktree(entry)) add(menu, "action.openWorktree", () -> openWorktree(entry));
             if (WorktreeService.canOpenFolder(entry)) add(menu, "action.open", () -> open(entry));
-            if (WorktreeService.canChangeGitLock(entry)) {
-                if (entry.locked()) add(menu, "action.unlock", () -> unlock(entry));
-                else add(menu, "action.lock", () -> lock(entry));
-            } else if (WorktreePreferences.showProtectedActions()) {
-                String reason = WorktreeService.protectedActionReason(entry, "lock");
-                addDisabled(menu, "action.lock", reason);
-                addDisabled(menu, "action.unlock", reason);
-            }
+            String lockOperation = entry.locked() ? "unlock" : "lock";
+            addWorktreeAction(menu, entry, lockOperation, WorktreeService.canChangeGitLock(entry),
+                    () -> { if (entry.locked()) unlock(entry); else lock(entry); });
             menu.addSeparator();
             add(menu, "action.repair", () -> repair(entry));
             WorktreeEntry.CleanupDeleteAction cleanupAction = WorktreeService.cleanupDeleteAction(entry);
-            if (cleanupAction == WorktreeEntry.CleanupDeleteAction.PRUNE) {
-                add(menu, "action.prune", () -> prune(entry));
-            } else if (cleanupAction == WorktreeEntry.CleanupDeleteAction.DELETE) {
-                add(menu, "action.move", () -> move(entry));
-                add(menu, "action.delete", () -> delete(entry));
-            } else if (WorktreePreferences.showProtectedActions()) {
-                addDisabled(menu, "action.prune", WorktreeService.protectedActionReason(entry, "prune"));
-                addDisabled(menu, "action.move", WorktreeService.protectedActionReason(entry, "move"));
-                addDisabled(menu, "action.delete", WorktreeService.protectedActionReason(entry, "delete"));
-            }
+            addWorktreeAction(menu, entry, "prune", cleanupAction == WorktreeEntry.CleanupDeleteAction.PRUNE,
+                    () -> prune(entry));
+            addWorktreeAction(menu, entry, "move", cleanupAction == WorktreeEntry.CleanupDeleteAction.DELETE,
+                    () -> move(entry));
+            addWorktreeAction(menu, entry, "delete", cleanupAction == WorktreeEntry.CleanupDeleteAction.DELETE,
+                    () -> delete(entry));
         } else if (value instanceof RepositoryLabel) {
             add(menu, "action.refresh", this::refresh);
         } else if (value instanceof WorktreeLocationLabel) {
@@ -325,6 +479,16 @@ public final class WorktreesPanel extends JPanel implements Disposable {
                     .setContents(new java.awt.datatransfer.StringSelection(detail.value())));
         }
         if (menu.getComponentCount() > 0) menu.show(event.getComponent(), event.getX(), event.getY());
+    }
+
+    private void addWorktreeAction(JPopupMenu menu, WorktreeEntry entry, String operation,
+                                   boolean allowed, Runnable callback) {
+        switch (WorktreeActionVisibility.state(entry, operation, allowed)) {
+            case ENABLED -> add(menu, "action." + operation, callback);
+            case DISABLED -> addDisabled(menu, "action." + operation,
+                    WorktreeService.protectedActionReason(entry, operation));
+            case HIDDEN -> { }
+        }
     }
 
     private void add(JPopupMenu menu, String key, Runnable callback) {
@@ -585,7 +749,8 @@ public final class WorktreesPanel extends JPanel implements Disposable {
 
     private void executeDelete(WorktreeEntry entry) {
         try {
-            ModalOperation.run(project, I18n.text("action.delete"), I18n.text("progress.delete"), () -> {
+            ModalOperation.runWithWaitingFeedback(project, I18n.text("action.delete"), I18n.text("progress.delete"),
+                    I18n.text("progress.deleteWaiting"), () -> {
                 WorktreeService.remove(project, entry);
                 return null;
             });
@@ -598,7 +763,8 @@ public final class WorktreesPanel extends JPanel implements Disposable {
             }
             if (!confirm("confirm.forceDelete", entry)) return;
             try {
-                ModalOperation.run(project, I18n.text("action.delete"), I18n.text("progress.forceDelete"), () -> {
+                ModalOperation.runWithWaitingFeedback(project, I18n.text("action.delete"), I18n.text("progress.forceDelete"),
+                        I18n.text("progress.deleteWaiting"), () -> {
                     WorktreeService.forceRemove(project, entry);
                     return null;
                 });

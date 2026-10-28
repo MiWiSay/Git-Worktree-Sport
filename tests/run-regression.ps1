@@ -27,8 +27,10 @@ $sources = @(
     'src\main\java\com\miwi\gitworktree\ui\WorktreeGroups.java',
     'src\main\java\com\miwi\gitworktree\ui\WorktreeHighlight.java',
     'src\main\java\com\miwi\gitworktree\ui\WorktreePreferences.java',
+    'src\main\java\com\miwi\gitworktree\ui\WorktreeActionVisibility.java',
     'src\main\java\com\miwi\gitworktree\ui\WorktreeCreatedTime.java',
     'src\main\java\com\miwi\gitworktree\service\WorktreeRemovalPolicy.java',
+    'src\main\java\com\miwi\gitworktree\service\OperationWaitFeedback.java',
     'src\main\java\com\miwi\gitworktree\service\WorktreePaths.java',
     'src\main\java\com\miwi\gitworktree\service\WorktreeListParser.java',
     'tests\fixtures\com\intellij\DynamicBundle.java',
@@ -36,6 +38,7 @@ $sources = @(
     'tests\fixtures\com\intellij\openapi\application\PathManager.java',
     'tests\fixtures\com\intellij\openapi\application\ApplicationNamesInfo.java',
     'tests\com\miwi\gitworktree\ui\RegressionChecks.java',
+    'tests\com\miwi\gitworktree\service\OperationWaitFeedbackChecks.java',
     'tests\com\miwi\gitworktree\ui\HighlightChecks.java'
 ) | ForEach-Object { Join-Path $root $_ }
 & (Join-Path $JavaHome 'bin\javac.exe') -encoding UTF-8 -d $classes $sources
@@ -45,6 +48,8 @@ $resources = Join-Path $root 'src\main\resources'
 if ($LASTEXITCODE -ne 0) { throw 'Regression assertions failed.' }
 & (Join-Path $JavaHome 'bin\java.exe') '-Djava.awt.headless=true' '-Dfile.encoding=UTF-8' -cp "$classes;$resources" com.miwi.gitworktree.ui.HighlightChecks
 if ($LASTEXITCODE -ne 0) { throw 'Highlight assertions failed.' }
+& (Join-Path $JavaHome 'bin\java.exe') '-Dfile.encoding=UTF-8' -cp "$classes;$resources" com.miwi.gitworktree.service.OperationWaitFeedbackChecks
+if ($LASTEXITCODE -ne 0) { throw 'Operation wait feedback assertions failed.' }
 if (-not $SkipIcons) {
     $sdk = Join-Path $AndroidStudioPath 'lib\*'
     if (-not (Test-Path -LiteralPath (Join-Path $AndroidStudioPath 'lib\intellij.platform.util.ui.jar'))) {

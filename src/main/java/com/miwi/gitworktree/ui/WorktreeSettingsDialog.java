@@ -1,6 +1,7 @@
 package com.miwi.gitworktree.ui;
 
 import com.intellij.icons.AllIcons;
+import com.intellij.ide.BrowserUtil;
 import com.intellij.openapi.ide.CopyPasteManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogBuilder;
@@ -28,6 +29,7 @@ import javax.swing.ListSelectionModel;
 import javax.swing.BorderFactory;
 import javax.swing.border.TitledBorder;
 import javax.swing.AbstractAction;
+import javax.swing.Action;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableRowSorter;
 import javax.swing.event.ChangeListener;
@@ -64,23 +66,34 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
     private final JButton editLanguageListButton = new JButton();
     private final JCheckBox hideListHelpCheckBox = new JCheckBox();
     private final JLabel hideListHelpHint = new JLabel();
-    private final JCheckBox showProtectedActionsCheckBox = new JCheckBox();
-    private final JLabel showProtectedActionsHint = new JLabel();
-    private final JLabel protectedActionsList = new JLabel();
+    private final JCheckBox hideMoveDeleteCheckBox = new JCheckBox();
+    private final JLabel hideMoveDeleteHint = new JLabel();
+    private final JCheckBox showMainProtectedActionsCheckBox = new JCheckBox();
+    private final JLabel showMainProtectedActionsHint = new JLabel();
+    private final JLabel mainProtectedActionsList = new JLabel();
+    private final Action feedbackAction = new AbstractAction() {
+        @Override public void actionPerformed(ActionEvent event) {
+            // Opening the issue page must not save or close the settings dialog.
+            BrowserUtil.browse("https://github.com/MiWiSay/Git-Worktree-Sport/issues");
+        }
+    };
     private TitledBorder languageSectionBorder;
     private TitledBorder displaySectionBorder;
+    private TitledBorder operationSectionBorder;
     private JPanel settingsPanel;
     private boolean reloadingLanguageOptions;
     private final String originalLanguage;
     private final boolean originalShowListHelp;
-    private final boolean originalShowProtectedActions;
+    private final boolean originalShowMainProtectedActions;
+    private final boolean originalHideMoveDelete;
 
     public WorktreeSettingsDialog(Project project) {
         super(project);
         this.project = project;
         this.originalLanguage = I18n.language();
         this.originalShowListHelp = WorktreePreferences.showListHelp();
-        this.originalShowProtectedActions = WorktreePreferences.showProtectedActions();
+        this.originalShowMainProtectedActions = WorktreePreferences.showMainProtectedActions();
+        this.originalHideMoveDelete = WorktreePreferences.hideMoveDeleteActions();
         setTitle(I18n.text("settings.title"));
         reloadLanguageOptions();
         languageBox.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
@@ -137,8 +150,9 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         displaySection.setBorder(displaySectionBorder);
         hideListHelpCheckBox.setSelected(WorktreePreferences.showListHelp() == false);
         hideListHelpCheckBox.addActionListener(event -> updateListHelpHint());
-        showProtectedActionsCheckBox.setSelected(WorktreePreferences.showProtectedActions());
-        showProtectedActionsCheckBox.addActionListener(event -> handleProtectedActionsToggle());
+        hideMoveDeleteCheckBox.setSelected(WorktreePreferences.hideMoveDeleteActions());
+        showMainProtectedActionsCheckBox.setSelected(WorktreePreferences.showMainProtectedActions());
+        showMainProtectedActionsCheckBox.addActionListener(event -> handleMainProtectedActionsToggle());
         constraints = new GridBagConstraints();
         constraints.insets = new Insets(4, 6, 2, 6);
         constraints.gridx = 0;
@@ -150,22 +164,39 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         constraints.gridy = 1;
         constraints.insets = new Insets(0, 28, 4, 6);
         displaySection.add(hideListHelpHint, constraints);
+        JPanel operationSection = new JPanel(new GridBagLayout());
+        operationSectionBorder = BorderFactory.createTitledBorder(I18n.text("settings.section.operations"));
+        operationSection.setBorder(operationSectionBorder);
+        constraints.gridy = 0;
+        constraints.insets = new Insets(4, 6, 2, 6);
+        operationSection.add(hideMoveDeleteCheckBox, constraints);
+        constraints.gridy = 1;
+        constraints.insets = new Insets(0, 28, 4, 6);
+        operationSection.add(hideMoveDeleteHint, constraints);
         constraints.gridy = 2;
         constraints.insets = new Insets(8, 6, 2, 6);
-        displaySection.add(showProtectedActionsCheckBox, constraints);
+        operationSection.add(showMainProtectedActionsCheckBox, constraints);
         constraints.gridy = 3;
         constraints.insets = new Insets(0, 28, 2, 6);
-        displaySection.add(showProtectedActionsHint, constraints);
+        operationSection.add(showMainProtectedActionsHint, constraints);
         constraints.gridy = 4;
         constraints.insets = new Insets(0, 28, 6, 6);
-        displaySection.add(protectedActionsList, constraints);
+        operationSection.add(mainProtectedActionsList, constraints);
+
+        JPanel preferences = new JPanel(new BorderLayout(0, 8));
+        preferences.add(displaySection, BorderLayout.NORTH);
+        preferences.add(operationSection, BorderLayout.CENTER);
 
         panel.setBorder(JBUI.Borders.empty(4));
         panel.add(languageSection, BorderLayout.NORTH);
-        panel.add(displaySection, BorderLayout.CENTER);
+        panel.add(preferences, BorderLayout.CENTER);
 
         updateLabels();
         return panel;
+    }
+
+    @Override protected Action[] createActions() {
+        return new Action[]{feedbackAction, getOKAction(), getCancelAction()};
     }
 
     private void reloadLanguageOptions() {
@@ -190,15 +221,22 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         editLanguageListButton.setText(I18n.text("settings.manageLanguages"));
         if (languageSectionBorder != null) languageSectionBorder.setTitle(I18n.text("settings.section.language"));
         if (displaySectionBorder != null) displaySectionBorder.setTitle(I18n.text("settings.section.display"));
+        if (operationSectionBorder != null) operationSectionBorder.setTitle(I18n.text("settings.section.operations"));
+        hideMoveDeleteCheckBox.setText(I18n.text("settings.hideMoveDelete"));
+        hideMoveDeleteHint.setText("<html>" + I18n.text("settings.hideMoveDeleteHint") + "</html>");
+        feedbackAction.putValue(Action.NAME, I18n.text("settings.feedback"));
+        feedbackAction.putValue(Action.SHORT_DESCRIPTION, I18n.text("settings.feedbackHint"));
         hideListHelpCheckBox.setText(I18n.text("settings.hideListHelp"));
         updateListHelpHint();
-        showProtectedActionsCheckBox.setText(I18n.text("settings.showProtectedActions"));
-        showProtectedActionsHint.setText("<html>" + I18n.text("settings.showProtectedActionsHint") + "</html>");
-        protectedActionsList.setText("<html>" + I18n.text("settings.protectedActionsList") + "</html>");
+        // A new label key avoids resurrecting the previous bundled suffix from persisted language files.
+        showMainProtectedActionsCheckBox.setText(I18n.text("settings.showMainProtectedActionsLabel"));
+        showMainProtectedActionsHint.setText("<html>" + I18n.text("settings.showMainProtectedActionsHint") + "</html>");
+        mainProtectedActionsList.setText("<html>" + I18n.text("settings.mainProtectedActionsList") + "</html>");
         Color muted = UIManager.getColor("Label.disabledForeground");
         if (muted != null) {
-            showProtectedActionsHint.setForeground(muted);
-            protectedActionsList.setForeground(muted);
+            hideMoveDeleteHint.setForeground(muted);
+            showMainProtectedActionsHint.setForeground(muted);
+            mainProtectedActionsList.setForeground(muted);
         }
         setOKButtonText(I18n.text("button.save"));
         setCancelButtonText(I18n.text("button.cancel"));
@@ -215,13 +253,15 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
     @Override public void doCancelAction() {
         I18n.setLanguage(originalLanguage);
         WorktreePreferences.setShowListHelp(originalShowListHelp);
-        WorktreePreferences.setShowProtectedActions(originalShowProtectedActions);
+        WorktreePreferences.setShowMainProtectedActions(originalShowMainProtectedActions);
+        WorktreePreferences.setHideMoveDeleteActions(originalHideMoveDelete);
         super.doCancelAction();
     }
 
     @Override protected void doOKAction() {
         WorktreePreferences.setShowListHelp(!hideListHelpCheckBox.isSelected());
-        WorktreePreferences.setShowProtectedActions(showProtectedActionsCheckBox.isSelected());
+        WorktreePreferences.setShowMainProtectedActions(showMainProtectedActionsCheckBox.isSelected());
+        WorktreePreferences.setHideMoveDeleteActions(hideMoveDeleteCheckBox.isSelected());
         super.doOKAction();
     }
 
@@ -231,12 +271,12 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         if (muted != null) hideListHelpHint.setForeground(muted);
     }
 
-    private void handleProtectedActionsToggle() {
-        if (!showProtectedActionsCheckBox.isSelected()) return;
+    private void handleMainProtectedActionsToggle() {
+        if (!showMainProtectedActionsCheckBox.isSelected()) return;
         int answer = Messages.showYesNoDialog(project,
-                I18n.text("confirm.showProtectedActions"),
+                I18n.text("confirm.showMainProtectedActions"),
                 I18n.text("title.confirm"), Messages.getWarningIcon());
-        if (answer != 0) showProtectedActionsCheckBox.setSelected(false);
+        if (answer != 0) showMainProtectedActionsCheckBox.setSelected(false);
     }
 
     private void editTranslations() {

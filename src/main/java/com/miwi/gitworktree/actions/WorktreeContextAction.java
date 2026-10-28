@@ -6,7 +6,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.miwi.gitworktree.ui.I18n;
-import com.miwi.gitworktree.ui.WorktreePreferences;
+import com.miwi.gitworktree.ui.WorktreeActionVisibility;
 import com.miwi.gitworktree.ui.WorktreesPanel;
 import com.miwi.gitworktree.model.WorktreeEntry;
 import com.miwi.gitworktree.service.WorktreeService;
@@ -38,15 +38,10 @@ public abstract class WorktreeContextAction extends AnAction {
                 case "prune" -> WorktreeService.cleanupDeleteAction(entry) == WorktreeEntry.CleanupDeleteAction.PRUNE;
                 default -> true;
             };
-            boolean protectedAction = switch (operation) {
-                case "lock", "unlock" -> !WorktreeService.canChangeGitLock(entry);
-                case "prune", "move", "delete" -> WorktreeService.cleanupDeleteAction(entry)
-                        == WorktreeEntry.CleanupDeleteAction.PROTECTED;
-                default -> false;
-            };
-            visible = allowed || (WorktreePreferences.showProtectedActions() && protectedAction);
-            presentation.setEnabled(allowed);
-            if (!allowed && protectedAction) {
+            WorktreeActionVisibility.State state = WorktreeActionVisibility.state(entry, operation, allowed);
+            visible = state != WorktreeActionVisibility.State.HIDDEN;
+            presentation.setEnabled(state == WorktreeActionVisibility.State.ENABLED);
+            if (state == WorktreeActionVisibility.State.DISABLED) {
                 presentation.setDescription(WorktreeService.protectedActionReason(entry, operation));
             }
         }

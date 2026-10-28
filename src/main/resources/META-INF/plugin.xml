@@ -2,7 +2,7 @@
     <id>com.miwi.talkinas.gitworktree</id>
     <name>Git Worktree Sport</name>
     <vendor>MiWi</vendor>
-    <version>1.0.3</version>
+    <version>1.0.4</version>
     <idea-version since-build="262.9437.185" />
     <description><![CDATA[
 <p>Create and manage Git worktrees without leaving your IDE. Keep parallel tasks in separate working directories while sharing one Git repository. Git Worktree Sport is free and has no purchase flow.</p>
@@ -35,7 +35,8 @@
   <li><b>Prune or Delete:</b> A valid worktree offers Delete; a missing or prunable registration offers Prune instead. Prune previews repository-wide stale registrations and does not delete existing directories. Delete removes a linked directory and its registration. Modified or untracked files require a separate confirmation before force removal.</li>
   <li><b>Move:</b> Ask Git to move a linked worktree and update registration. The destination must not exist and its parent must exist.</li>
 </ul>
-<p><b>Protection:</b> The main worktree and worktrees open as projects in this IDE session cannot be pruned, moved, deleted, locked, or unlocked from the manager. This protection is independent of branch names and does not create a Git lock. Truly Git-locked worktrees also hide Move and Delete. By default, protected high-risk actions are hidden; the settings dialog can show them as disabled entries with a reason without weakening protection. High-risk operations have confirmations, and running operations show a blocking progress state.</p>
+<p><b>Protection and menu settings:</b> The main worktree and worktrees open as projects in this IDE session cannot be pruned, moved, deleted, locked, or unlocked from the manager. This protection is independent of branch names and does not create a Git lock. Truly Git-locked worktrees also hide Move and Delete. Settings offer two independent options, both off by default: hide Move and Delete for all worktrees, or show the main worktree's protected Move and Delete as disabled entries with a reason. Global hiding takes precedence; neither option weakens protection. Lock or Unlock remains visible according to the actual Git lock state, disabled when protected. Repair is unaffected; Prune appears only for eligible missing or stale registrations. High-risk operations have confirmations, and running operations show a blocking progress state. Deletion shows elapsed time and a longer-wait explanation after 30 seconds, without a false completion percentage or unsafe mid-operation cancellation.</p>
+<p><b>Feedback:</b> The settings dialog includes a <b>Submit feedback</b> button that opens this project's GitHub Issues page in your browser.</p>
 <p><b>Creation conflicts:</b> Missing-directory registrations can be cleaned after confirmation before retrying. A branch checked out elsewhere requires explicit force confirmation. Active worktrees are not duplicated, and non-empty directories are never overwritten.</p>
 <h3>Language and translation tools</h3>
 <p>Use the settings button beside Refresh to follow the IDE language or select a bundled language. The current release includes ten language packs: <b>English</b>, <b>Simplified Chinese</b>, <b>Traditional Chinese</b>, <b>Japanese</b>, <b>Korean</b>, <b>German</b>, <b>French</b>, <b>Spanish</b>, <b>Portuguese (Brazil)</b>, and <b>Russian</b>. Labels display the running IDE's product name rather than assuming a particular IDE.</p>
@@ -47,6 +48,12 @@
 ]]></description>
 
     <change-notes><![CDATA[
+<h3>1.0.4</h3>
+<ul><li>Split action-menu preferences into global Move/Delete hiding and optional disabled Move/Delete entries for the main worktree, both off by default, with consistent behavior in the Git menu and tree popup.</li><li>Kept Lock/Unlock visible according to Git state, disabled when protected; Repair and eligible Prune actions are independent of these preferences.</li><li>Added a settings shortcut to GitHub Issues and updated all ten language packs.</li><li>Added elapsed time and longer-wait feedback to deletion dialogs while retaining all execution protections.</li></ul>
+<h3>1.0.3.101</h3>
+<ul><li>Kept the Worktree Sport tool window available during indexing, so its localized loading message appears instead of the IDE's English placeholder.</li></ul>
+<h3>1.0.3.100</h3>
+<ul><li>Replaced deprecated project-root and startup APIs to improve compatibility with newer IntelliJ Platform builds.</li><li>Kept the worktree list in a localized loading state while project initialization or indexing is still in progress.</li></ul>
 <h3>1.0.3</h3>
 <ul><li>Improved worktree action availability and validation for missing, invalid, locked, and currently open worktrees.</li><li>Hardened Git worktree metadata parsing and added regression coverage for cleanup and protection rules.</li><li>Added automatic refresh after IDE initialization and reliable context-menu targeting across the full worktree row.</li><li>Added optional list instructions and a setting to show protected high-risk actions as disabled entries with their protection reason.</li></ul>
 <h3>1.0.2</h3>

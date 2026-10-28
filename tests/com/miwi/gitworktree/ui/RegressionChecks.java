@@ -33,6 +33,12 @@ public final class RegressionChecks {
                 packaged = FlatJson.parse(new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
             }
             var actualKeys = new java.util.LinkedHashSet<>(packaged.keySet());
+            for (String key : List.of("settings.showMainProtectedActionsLabel", "settings.showMainProtectedActions", "settings.showProtectedActions")) {
+                String label = packaged.get(key);
+                check(label != null && !java.util.regex.Pattern.compile("[（(][^（）()]*[）)]\\s*$")
+                                .matcher(label).find(),
+                        "Protected setting label has no misleading unavailability suffix: " + id + "/" + key);
+            }
             actualKeys.remove("__locale");
             check(actualKeys.equals(catalog.messages(first.id()).keySet()),
                     "Packaged language has a full translation set: " + id);
@@ -73,9 +79,14 @@ public final class RegressionChecks {
                 "GitWorktreeSport", "languages", second.id() + ".json");
         Map<String, String> olderMessages = FlatJson.parse(Files.readString(configuredSecondLanguage));
         olderMessages.remove("settings.deleteLanguage");
+        olderMessages.remove("settings.showMainProtectedActionsLabel");
+        olderMessages.put("settings.showMainProtectedActions", "Old persisted setting label");
         Files.writeString(configuredSecondLanguage, FlatJson.write(olderMessages));
         check(LanguageCatalog.load().messages(second.id()).containsKey("settings.deleteLanguage"),
                 "New packaged labels fill missing keys in existing language files");
+        equal(LanguageCatalog.load().messages(second.id()).get("settings.showMainProtectedActionsLabel"),
+                catalog.messages(second.id()).get("settings.showMainProtectedActionsLabel"),
+                "Revised setting label replaces the old UI label without overwriting persisted user translations");
         for (var language : builtIns) {
             for (String key : List.of("button.openProject", "button.close", "error.openProject",
                     "confirm.forceDelete", "detail.created", "detail.openFolderButton",
@@ -90,10 +101,14 @@ public final class RegressionChecks {
                     "settings.section.language", "settings.section.display", "settings.hideListHelp",
                     "settings.hideListHelpHint", "settings.showProtectedActions",
                     "settings.showProtectedActionsHint", "settings.protectedActionsList",
+                    "settings.section.operations", "settings.hideMoveDelete", "settings.hideMoveDeleteHint",
+                    "settings.showMainProtectedActions", "settings.showMainProtectedActionsHint",
+                    "settings.mainProtectedActionsList", "confirm.showMainProtectedActions",
+                    "settings.feedback", "settings.feedbackHint",
                     "confirm.showProtectedActions", "tree.help.worktreeItem", "tree.help.emptySpace",
                     "menu.protectedReason.main", "menu.protectedReason.mainLock",
                     "menu.protectedReason.current", "menu.protectedReason.locked",
-                    "menu.protectedReason.unavailable",
+                    "menu.protectedReason.unavailable", "tree.loading",
                     "create.mode", "create.mode.existing", "create.mode.new", "create.mode.detached",
                     "create.mode.orphan", "create.branchName", "create.startPoint", "create.noCheckout",
                     "error.deleteStaleWorktree", "error.pruneHealthyWorktree")) {
@@ -117,14 +132,23 @@ public final class RegressionChecks {
         PropertiesComponent properties = PropertiesComponent.getInstance();
         properties.values.remove("git.worktree.sport.showListHelp");
         properties.values.remove("git.worktree.sport.showProtectedActions");
+        properties.values.remove("git.worktree.sport.hideMoveDeleteActions");
         check(WorktreePreferences.showListHelp(), "Worktree list help is visible by default");
-        check(!WorktreePreferences.showProtectedActions(), "Protected actions are hidden by default");
+        check(!WorktreePreferences.showMainProtectedActions(), "Main protected Move/Delete are hidden by default");
+        check(!WorktreePreferences.hideMoveDeleteActions(), "Global Move/Delete hiding is off by default");
         WorktreePreferences.setShowListHelp(false);
-        WorktreePreferences.setShowProtectedActions(true);
-        check(!WorktreePreferences.showListHelp() && WorktreePreferences.showProtectedActions(),
+        WorktreePreferences.setShowMainProtectedActions(true);
+        check(!WorktreePreferences.showListHelp() && WorktreePreferences.showMainProtectedActions()
+                        && !WorktreePreferences.hideMoveDeleteActions(),
                 "Worktree display preferences persist independently");
+        WorktreePreferences.setHideMoveDeleteActions(true);
+        check(WorktreePreferences.hideMoveDeleteActions() && WorktreePreferences.showMainProtectedActions(),
+                "Global hiding and main visibility can be saved independently");
+        properties.setValue("git.worktree.sport.showProtectedActions", "true");
+        check(WorktreePreferences.showMainProtectedActions(), "Previous protected menu preference migrates safely");
         WorktreePreferences.setShowListHelp(true);
-        WorktreePreferences.setShowProtectedActions(false);
+        WorktreePreferences.setShowMainProtectedActions(false);
+        WorktreePreferences.setHideMoveDeleteActions(false);
         I18n.setLanguage(first.id());
         com.intellij.openapi.application.ApplicationNamesInfo.product = "IntelliJ IDEA";
         check(I18n.text("settings.languageHint").contains("IntelliJ IDEA"), "Actual IDE name replaces placeholder");
@@ -328,6 +352,7 @@ public final class RegressionChecks {
                     "A missing registered worktree exposes prune instead of delete");
             equal(missingButLocked.cleanupDeleteAction(), WorktreeEntry.CleanupDeleteAction.PROTECTED,
                     "Git-locked stale worktrees remain protected from cleanup and deletion");
+            checkActionVisibility(repo, createdFolder);
             check(!WorktreeCreatedTime.format(createdFolder, "Unavailable").equals("Unavailable"),
                     "Worktree creation time falls back to filesystem directory metadata");
             check(WorktreeCreatedTime.format(createdFolder.resolve("missing"), "Unavailable").equals("Unavailable"),
@@ -345,6 +370,64 @@ public final class RegressionChecks {
 
     private static WorktreeEntry entry(String repository, Path path, String branch, String head, boolean main) {
         return new WorktreeEntry(repository, path.toString(), branch, head, main, branch.startsWith("("), false, false, false);
+    }
+
+    private static void checkActionVisibility(String repository, Path existing) {
+        for (boolean globalHide : List.of(false, true)) {
+            for (boolean showMain : List.of(false, true)) {
+                WorktreePreferences.setHideMoveDeleteActions(globalHide);
+                WorktreePreferences.setShowMainProtectedActions(showMain);
+                for (boolean main : List.of(false, true)) {
+                    for (boolean current : List.of(false, true)) {
+                        for (boolean locked : List.of(false, true)) {
+                            for (boolean missing : List.of(false, true)) {
+                                WorktreeEntry entry = new WorktreeEntry(repository,
+                                        (missing ? existing.resolve("missing-policy-fixture") : existing).toString(),
+                                        "branch-name-does-not-control-protection", "1234567890", main, false,
+                                        false, locked, missing, current);
+                                WorktreeEntry.CleanupDeleteAction cleanup = entry.cleanupDeleteAction();
+                                boolean canDelete = cleanup == WorktreeEntry.CleanupDeleteAction.DELETE;
+                                WorktreeActionVisibility.State expectedDelete = globalHide
+                                        ? WorktreeActionVisibility.State.HIDDEN
+                                        : main ? (showMain ? WorktreeActionVisibility.State.DISABLED
+                                                : WorktreeActionVisibility.State.HIDDEN)
+                                        : canDelete ? WorktreeActionVisibility.State.ENABLED
+                                                : WorktreeActionVisibility.State.HIDDEN;
+                                for (String operation : List.of("move", "delete")) {
+                                    equal(WorktreeActionVisibility.state(entry, operation, canDelete), expectedDelete,
+                                            "Move/Delete visibility matrix: " + operation);
+                                }
+                                for (String operation : List.of("lock", "unlock")) {
+                                    boolean matchingLockState = operation.equals("unlock") == locked;
+                                    boolean allowed = !entry.protectedFromGitLockChanges() && matchingLockState;
+                                    WorktreeActionVisibility.State expectedLock = !matchingLockState
+                                            ? WorktreeActionVisibility.State.HIDDEN
+                                            : allowed ? WorktreeActionVisibility.State.ENABLED
+                                                    : WorktreeActionVisibility.State.DISABLED;
+                                    equal(WorktreeActionVisibility.state(entry, operation, allowed), expectedLock,
+                                            "Lock state is independent of both menu preferences");
+                                }
+                                equal(WorktreeActionVisibility.state(entry, "repair", true),
+                                        WorktreeActionVisibility.State.ENABLED, "Repair is never hidden by risky-action settings");
+                                equal(WorktreeActionVisibility.state(entry, "prune",
+                                                cleanup == WorktreeEntry.CleanupDeleteAction.PRUNE),
+                                        cleanup == WorktreeEntry.CleanupDeleteAction.PRUNE
+                                                ? WorktreeActionVisibility.State.ENABLED : WorktreeActionVisibility.State.HIDDEN,
+                                        "Prune remains exclusive to eligible stale/missing entries");
+                                equal(WorktreeActionVisibility.state(entry, "open", true),
+                                        WorktreeActionVisibility.State.ENABLED, "Open is unaffected");
+                                if (main || current || locked) {
+                                    equal(entry.cleanupDeleteAction(), WorktreeEntry.CleanupDeleteAction.PROTECTED,
+                                            "Visibility options never change execution protection");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        WorktreePreferences.setHideMoveDeleteActions(false);
+        WorktreePreferences.setShowMainProtectedActions(false);
     }
 
     private static void equal(Object actual, Object expected, String label) {
