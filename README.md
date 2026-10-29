@@ -42,7 +42,7 @@ The plugin invokes the Git executable configured in the IDE and uses Git's built
 - Omits repeated repository-name prefixes from main and sibling worktree titles, while retaining useful container folder names and complete branch names.
 - Marks missing or prunable worktree paths so stale registrations can be identified.
 - Refresh reloads local Git metadata. It does not fetch remote branches or contact a server.
-![](https://plugins.jetbrains.com/files/35384/63552-page/5a109458-373d-4547-8d61-0e16cf766c16)
+![](https://plugins.jetbrains.com/files/35384/63552-page/0b500507-9bf9-40d2-bab4-2aab46ce64fe)
 
 ### Create from Git Branches
 
@@ -55,7 +55,7 @@ Local branches are checked out directly. For a remote branch, the plugin reuses 
 - An already active worktree at the destination is not duplicated.
 - A non-empty destination is never overwritten.
 
-![](https://plugins.jetbrains.com/files/35384/63552-page/9701bb5a-73a9-4523-a610-1f9b05581b15)
+![](https://plugins.jetbrains.com/files/35384/63552-page/25349b85-8aa3-45de-b252-f15ac34b49fc)
 The path dialog remains open while the operation runs. Repeat input is disabled during progress; success closes the dialog, while an error leaves it available for correction and retry.
 
 The success dialog offers **Open Project** and **Close** (the safe default). Open Project delegates to the IDE's standard project import/open flow, respecting its current/new-window prompt and saved preference. Close, Escape, or dismissing the dialog reveals the manager, expands the target's ancestors, selects the worktree by its full normalized path, and flashes it blue for two seconds. Cancelling project opening leaves the created directory intact and reveals it in the manager as well. Open failures are reported separately from creation. The right-click Open Folder action remains an operating-system file-manager action.
@@ -71,20 +71,20 @@ Right-click a worktree in the tree to access these operations:
 - **Move Worktree** uses Git to move the linked worktree and update its registration. The destination must not exist and its parent must exist.
 - **Delete Worktree** first uses normal Git removal. If Git reports modified or untracked files, a second warning explains that force removal permanently deletes the entire directory; only explicit confirmation runs `git worktree remove --force`.
 
-![](https://plugins.jetbrains.com/files/35384/63552-page/680afe6d-9c75-4938-86c7-c3a5ee8ca572)
-The main worktree's badge remains green when Git reports it as unlocked. The main worktree and each worktree currently open as an Android Studio project hide Prune, Move, Delete, Lock, and Unlock by default; service-level checks enforce the same protection. The settings dialog can show these protected entries as disabled items with a short reason, without enabling them. Current-project protection does not change the Git lock state shown in details. The manager does not run Git lock/unlock on the main worktree. A real Git lock is shown in blue. Other locked linked worktrees hide Move/Delete by default, and direct calls are rejected until unlocked.
+![](https://plugins.jetbrains.com/files/35384/63552-page/af8c12e5-3843-4451-b9a9-a25aab7c22dd)
+The main worktree's badge remains green when Git reports it as unlocked. The main worktree and each worktree currently open as an Android Studio project hide Prune, Move, Delete, Lock, and Unlock; service-level checks enforce the same protection. Current-project protection does not change the Git lock state shown in details. The manager does not run Git lock/unlock on the main worktree. A real Git lock is shown in blue. Other locked linked worktrees hide Move/Delete, and direct calls are rejected until unlocked.
 
 ### Language and Translation Settings
 
 You can use the settings button next to the refresh button to follow the IDE language or choose the plugin language. Built-in languages include: **English, Simplified Chinese, Traditional Chinese, Japanese, Korean, German, French, Spanish, Brazilian Portuguese, Russian**.
 
 The translation editor displays content in a table where keys cannot be modified, values can be edited, and it supports `Ctrl+F` searching, importing and exporting text in `key=value` format. It checks for duplicates, unknown, and missing keys during import. You can add a new language, change a language name, or delete user-added languages; unsaved edits can be reverted to restore changes from the current session.
-![](https://plugins.jetbrains.com/files/35384/63552-page/6eed5643-50b6-4499-bbaa-704e10940f13)
-![](https://plugins.jetbrains.com/files/35384/63552-page/42db4b27-0573-48b3-bca2-b6ca18bd205f)
-![](https://plugins.jetbrains.com/files/35384/63552-page/bc0062e9-beed-4b4b-889d-6a0ad23d15e0)
+![](https://plugins.jetbrains.com/files/35384/63552-page/e5fd3c0c-face-471b-a8b2-a23ed7130fec)
+![](https://plugins.jetbrains.com/files/35384/63552-page/86299f23-ce8a-47be-bcdc-d914a0b3a747)
+![](https://plugins.jetbrains.com/files/35384/63552-page/02490715-e1c6-42d5-8c51-ddcdaba95711)
 
 ## Project Links
 
 - Plugin marketplace: [Git Worktree Sport on JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35384-git-worktree-sport)
 - Source code & issues: [GitHub Repository](https://github.com/MiWiSay/Git-Worktree-Sport)
-- License: [Apache-2.0](https://github.com/MiWiSay/Git-Worktree-Sport/blob/main/LICENSE)
+- License: [Apache-2.0](https://github.com/MiWiSay/Git-Worktree-Sport/blob/main/LICENSE
