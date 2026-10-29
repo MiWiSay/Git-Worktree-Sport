@@ -55,6 +55,7 @@ Local branches are checked out directly. For a remote branch, the plugin reuses 
 - An already active worktree at the destination is not duplicated.
 - A non-empty destination is never overwritten.
 
+![](https://plugins.jetbrains.com/files/35384/63552-page/cbc55287-4b50-4ba9-83f9-c9b42d594477)
 ![](https://plugins.jetbrains.com/files/35384/63552-page/25349b85-8aa3-45de-b252-f15ac34b49fc)
 The path dialog remains open while the operation runs. Repeat input is disabled during progress; success closes the dialog, while an error leaves it available for correction and retry.
 
