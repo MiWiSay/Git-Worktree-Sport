@@ -51,6 +51,10 @@ intellijPlatform {
     pluginVerification {
         ides {
             local(file(androidStudioPath))
+            // Optional local IDE installations or official audit-library snapshots, separated by '|'.
+            // Audit snapshots provide API evidence only, not full IDE/UI validation.
+            providers.gradleProperty("verificationIdePaths").orNull
+                ?.split('|')?.filter { it.isNotBlank() }?.forEach { local(file(it)) }
         }
     }
 }

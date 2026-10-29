@@ -4,6 +4,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.ui.AnimatedIcon;
 import com.intellij.ide.impl.ProjectUtil;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -17,19 +18,14 @@ import com.miwi.gitworktree.service.ModalOperation;
 import com.miwi.gitworktree.service.WorktreeService;
 import com.miwi.gitworktree.ui.I18n;
 
-import javax.swing.JButton;
-import javax.swing.ButtonGroup;
-import javax.swing.JCheckBox;
+import com.miwi.gitworktree.ui.CreateWorktreeForm;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JRadioButton;
-import javax.swing.JTextField;
-import java.awt.BorderLayout;
+import javax.swing.DefaultListCellRenderer;
+import javax.swing.SwingUtilities;
+import java.awt.Dimension;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import javax.swing.DefaultListCellRenderer;
 
 public final class CreateWorktreeFromBranchAction extends GitSingleRefAction<GitBranch> {
     public CreateWorktreeFromBranchAction() {
@@ -71,6 +67,14 @@ public final class CreateWorktreeFromBranchAction extends GitSingleRefAction<Git
 
     /** 分支弹窗与工作区列表入口共用相同的校验、进度及成功反馈流程。 */
     public void openCreateDialog(Project project, GitRepository repository, GitBranch branch) {
+        openCreateDialog(project, repository, branch, false);
+    }
+
+    /**
+     * 工作区条目的派生创建入口默认新建分支；不展示检出现有分支或没有继承关系的孤儿模式。
+     */
+    public void openCreateDialog(Project project, GitRepository repository, GitBranch branch,
+                                 boolean createNewBranchFromSelected) {
         if (project.isDisposed()) return;
 
         WorktreeService.BranchSpec branchSpec;
@@ -87,11 +91,17 @@ public final class CreateWorktreeFromBranchAction extends GitSingleRefAction<Git
             Messages.showErrorDialog(project, I18n.text("error.repositoryParent"), I18n.text("title.create"));
             return;
         }
-        String safeBranch = branchSpec.localName().replaceAll("[^A-Za-z0-9._-]+", "-").replaceAll("^-+|-+$", "");
-        if (safeBranch.isBlank()) safeBranch = "branch";
-        String initialPath = parent.resolve(repositoryRoot.getFileName() + "-" + safeBranch).toString();
-        PathDialog dialog = new PathDialog(project, initialPath,
-                branchSpec, (selectedPath, spec) -> create(project, repositoryRoot, branchSpec, selectedPath, spec));
+        List<WorktreeService.BranchReference> branches;
+        try {
+            branches = ModalOperation.run(project, I18n.text("title.create"), I18n.text("progress.create"),
+                    () -> WorktreeService.creationBranches(repositoryRoot));
+        } catch (Exception e) {
+            Messages.showErrorDialog(project, message(e), I18n.text("title.checkFailed"));
+            return;
+        }
+        PathDialog dialog = new PathDialog(project, repositoryRoot, branchSpec, branches,
+                createNewBranchFromSelected,
+                (selectedPath, spec) -> create(project, repositoryRoot, branchSpec, selectedPath, spec));
         if (dialog.showAndGet()) {
             Path createdPath = Path.of(dialog.path().trim()).toAbsolutePath().normalize();
             int answer = Messages.showDialog(project, I18n.format("create.success", createdPath),
@@ -118,12 +128,11 @@ public final class CreateWorktreeFromBranchAction extends GitSingleRefAction<Git
 
     private boolean create(Project project, Path repositoryRoot, WorktreeService.BranchSpec branchSpec,
                            String selectedPath, WorktreeService.CreateSpec spec) throws Exception {
-        Path target;
-        try {
-            target = Path.of(selectedPath.trim()).toAbsolutePath().normalize();
-        } catch (Exception e) {
-            throw new IllegalArgumentException(I18n.format("error.invalidPath", e.getMessage()), e);
-        }
+        List<WorktreeService.CreateIssue> issues = ModalOperation.run(project,
+                I18n.text("title.creating"), I18n.text("progress.create"),
+                () -> WorktreeService.validateCreateInputs(repositoryRoot, selectedPath, spec));
+        if (!issues.isEmpty()) throw new InputConflictException(issues);
+        Path target = Path.of(selectedPath.trim()).toAbsolutePath().normalize();
         WorktreeService.BranchSpec conflictBranch = switch (spec.mode()) {
             case EXISTING_BRANCH -> branchSpec;
             case NEW_BRANCH, ORPHAN -> new WorktreeService.BranchSpec(spec.branchName(), null, false);
@@ -144,11 +153,15 @@ public final class CreateWorktreeFromBranchAction extends GitSingleRefAction<Git
                                                                WorktreeService.BranchSpec branch, boolean allowForce,
                                                                boolean checkBranchAvailability) {
         try {
-            WorktreeService.CreateConflict conflict = WorktreeService.inspectCreate(root, target, branch, checkBranchAvailability);
+            WorktreeService.CreateConflict conflict = ModalOperation.run(project,
+                    I18n.text("title.creating"), I18n.text("progress.create"),
+                    () -> WorktreeService.inspectCreate(root, target, branch, checkBranchAvailability));
             return switch (conflict.type()) {
                 case NONE -> WorktreeService.CreateResolution.NORMAL;
                 case STALE_REGISTRATION -> {
-                    String preview = WorktreeService.prunePreview(root);
+                    String preview = ModalOperation.run(project,
+                            I18n.text("title.creating"), I18n.text("progress.create"),
+                            () -> WorktreeService.prunePreview(root));
                     String details = preview.isBlank() ? I18n.text("prune.none") : preview;
                     String message = I18n.format("create.staleRegistration", target) + "\n\n" + details;
                     yield choose(project, message,
@@ -190,138 +203,86 @@ public final class CreateWorktreeFromBranchAction extends GitSingleRefAction<Git
 
     private static String message(Exception e) { return e.getMessage() == null ? e.toString() : e.getMessage(); }
 
-    private static final class PathDialog extends DialogWrapper {
-        private final JTextField pathField;
-        private final JTextField branchNameField;
-        private final JTextField startPointField;
-        private final List<JRadioButton> modeButtons = new ArrayList<>();
-        private final JCheckBox noCheckout;
-        private final PathSubmission submission;
-        private final Project project;
-        private JPanel modeFieldsPanel;
+    private static final class InputConflictException extends Exception {
+        private final List<WorktreeService.CreateIssue> issues;
 
-        private PathDialog(Project project, String initialPath, WorktreeService.BranchSpec selectedBranch,
+        private InputConflictException(List<WorktreeService.CreateIssue> issues) {
+            super(issues.stream().map(WorktreeService.CreateIssue::message)
+                    .collect(java.util.stream.Collectors.joining("\n\n")));
+            this.issues = List.copyOf(issues);
+        }
+    }
+
+    private static final class PathDialog extends DialogWrapper {
+        private final CreateWorktreeForm form;
+        private final PathSubmission submission;
+        private boolean submitting;
+
+        private PathDialog(Project project, Path root, WorktreeService.BranchSpec selectedBranch,
+                           List<WorktreeService.BranchReference> branches, boolean derived,
                            PathSubmission submission) {
             super(project);
-            this.project = project;
-            this.pathField = new JTextField(initialPath, 42);
             this.submission = submission;
-            this.branchNameField = new JTextField("new-" + selectedBranch.localName(), 30);
-            String defaultStart = selectedBranch.startPoint() == null ? selectedBranch.localName() : selectedBranch.startPoint();
-            this.startPointField = new JTextField(defaultStart, 30);
-            this.noCheckout = new JCheckBox(I18n.text("create.noCheckout"));
-            this.noCheckout.setToolTipText(I18n.text("create.noCheckoutHint"));
-            ButtonGroup modeGroup = new ButtonGroup();
-            addModeButton(modeGroup, WorktreeService.CreateMode.EXISTING_BRANCH, "create.mode.existing", true);
-            addModeButton(modeGroup, WorktreeService.CreateMode.NEW_BRANCH, "create.mode.new", false);
-            addModeButton(modeGroup, WorktreeService.CreateMode.DETACHED, "create.mode.detached", false);
-            addModeButton(modeGroup, WorktreeService.CreateMode.ORPHAN, "create.mode.orphan", false);
+            form = new CreateWorktreeForm(root, selectedBranch, branches, derived, accept -> {
+                VirtualFile selected = FileChooser.chooseFile(
+                        FileChooserDescriptorFactory.createSingleFolderDescriptor(), project, null);
+                if (selected != null) accept.accept(selected.getPath());
+            });
             setTitle(I18n.text("title.create"));
             setOKButtonText(I18n.text("button.create"));
             setCancelButtonText(I18n.text("button.cancel"));
+            form.setLayoutChangeListener(this::repackForCurrentMode);
             init();
         }
 
-        String path() { return pathField.getText(); }
-
-        private void addModeButton(ButtonGroup group, WorktreeService.CreateMode mode, String labelKey,
-                                   boolean selected) {
-            JRadioButton button = new JRadioButton(I18n.text(labelKey), selected);
-            button.putClientProperty("mode", mode);
-            button.addActionListener(event -> updateModeFields());
-            group.add(button);
-            modeButtons.add(button);
+        private void repackForCurrentMode() {
+            if (!isShowing()) return;
+            SwingUtilities.invokeLater(() -> {
+                if (!isShowing()) return;
+                // Keep the width stable while allowing the height to follow the
+                // currently visible mode. This removes the unused area left by
+                // the largest mode without making the dialog jump horizontally.
+                Dimension current = getSize();
+                pack();
+                if (getSize().width < current.width) setSize(current.width, getSize().height);
+            });
         }
 
-        private WorktreeService.CreateMode selectedMode() {
-            return modeButtons.stream().filter(JRadioButton::isSelected)
-                    .map(button -> (WorktreeService.CreateMode) button.getClientProperty("mode"))
-                    .findFirst().orElse(WorktreeService.CreateMode.EXISTING_BRANCH);
-        }
-
-        private WorktreeService.CreateSpec createSpec() {
-            WorktreeService.CreateMode mode = selectedMode();
-            return new WorktreeService.CreateSpec(mode, branchNameField.getText().trim(),
-                    startPointField.getText().trim(), noCheckout.isSelected());
-        }
-
-        private void updateModeFields() {
-            WorktreeService.CreateMode mode = selectedMode();
-            boolean branchNameVisible = mode == WorktreeService.CreateMode.NEW_BRANCH || mode == WorktreeService.CreateMode.ORPHAN;
-            branchNameField.setVisible(branchNameVisible);
-            startPointField.setVisible(mode == WorktreeService.CreateMode.NEW_BRANCH || mode == WorktreeService.CreateMode.DETACHED);
-            ((JLabel) branchNameField.getClientProperty("label")).setVisible(branchNameVisible);
-            ((JLabel) startPointField.getClientProperty("label")).setVisible(startPointField.isVisible());
-            boolean orphan = mode == WorktreeService.CreateMode.ORPHAN;
-            if (orphan && noCheckout.isSelected()) noCheckout.setSelected(false);
-            noCheckout.setEnabled(!orphan);
-            noCheckout.setToolTipText(orphan ? I18n.text("create.noCheckoutOrphanHint") : null);
-            if (modeFieldsPanel != null) {
-                modeFieldsPanel.revalidate();
-                modeFieldsPanel.repaint();
-            }
-        }
+        String path() { return form.path(); }
 
         @Override protected void doOKAction() {
+            if (submitting) return;
+            submitting = true;
+            form.setBusy(true);
+            getOKAction().setEnabled(false);
+            getCancelAction().setEnabled(false);
+            setOKButtonIcon(AnimatedIcon.Default.INSTANCE);
             try {
-                if (!submission.submit(pathField.getText(), createSpec())) {
+                List<WorktreeService.CreateIssue> required = form.requiredIssues();
+                if (!required.isEmpty()) throw new InputConflictException(required);
+                if (submission.submit(form.path(), form.spec())) {
+                    super.doOKAction();
                     return;
                 }
-                super.doOKAction();
+                restoreSubmitControls();
+            } catch (InputConflictException e) {
+                restoreSubmitControls();
+                form.markIssues(e.issues);
+                Messages.showWarningDialog(getContentPanel(), e.getMessage(), I18n.text("operation.failed"));
             } catch (Exception e) {
+                restoreSubmitControls();
                 Messages.showErrorDialog(getContentPanel(), message(e), I18n.text("operation.failed"));
             }
         }
 
-        @Override protected JComponent createCenterPanel() {
-            JPanel panel = new JPanel(new BorderLayout(8, 8));
-            JPanel fields = new JPanel(new java.awt.GridBagLayout());
-            modeFieldsPanel = fields;
-            java.awt.GridBagConstraints constraints = new java.awt.GridBagConstraints();
-            constraints.insets = new java.awt.Insets(4, 4, 4, 4);
-            constraints.anchor = java.awt.GridBagConstraints.WEST;
-            constraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-            constraints.gridx = 0; constraints.gridy = 0;
-            fields.add(new JLabel(I18n.text("create.mode")), constraints);
-            JPanel modeOptions = new JPanel();
-            modeOptions.setLayout(new javax.swing.BoxLayout(modeOptions, javax.swing.BoxLayout.Y_AXIS));
-            modeButtons.forEach(modeOptions::add);
-            constraints.gridx = 1; constraints.weightx = 1;
-            fields.add(modeOptions, constraints);
-            JLabel branchNameLabel = new JLabel(I18n.text("create.branchName"));
-            JLabel startPointLabel = new JLabel(I18n.text("create.startPoint"));
-            branchNameField.putClientProperty("label", branchNameLabel);
-            startPointField.putClientProperty("label", startPointLabel);
-            constraints.weightx = 0; constraints.gridx = 0; constraints.gridy++;
-            fields.add(branchNameLabel, constraints);
-            constraints.gridx = 1; constraints.weightx = 1;
-            fields.add(branchNameField, constraints);
-            constraints.weightx = 0; constraints.gridx = 0; constraints.gridy++;
-            fields.add(startPointLabel, constraints);
-            constraints.gridx = 1; constraints.weightx = 1;
-            fields.add(startPointField, constraints);
-            constraints.gridx = 0; constraints.gridy++; constraints.gridwidth = 2;
-            fields.add(noCheckout, constraints);
-            // 动态字段显隐时，只让底部留白吸收多余高度，避免选项组随模式切换上下漂移。
-            constraints.gridy++; constraints.weighty = 1; constraints.fill = java.awt.GridBagConstraints.VERTICAL;
-            fields.add(new JPanel(), constraints);
-            JPanel pathRow = new JPanel(new BorderLayout(6, 0));
-            pathRow.add(pathField, BorderLayout.CENTER);
-            JButton browse = new JButton(I18n.text("action.browse"));
-            browse.addActionListener(event -> {
-                VirtualFile selected = FileChooser.chooseFile(
-                        FileChooserDescriptorFactory.createSingleFolderDescriptor(), project, null);
-                if (selected != null) pathField.setText(selected.getPath());
-            });
-            pathRow.add(browse, BorderLayout.EAST);
-            JPanel content = new JPanel(new BorderLayout(6, 6));
-            content.add(new JLabel(I18n.text("dialog.create")), BorderLayout.NORTH);
-            content.add(fields, BorderLayout.CENTER);
-            content.add(pathRow, BorderLayout.SOUTH);
-            panel.add(content, BorderLayout.CENTER);
-            updateModeFields();
-            return panel;
+        private void restoreSubmitControls() {
+            submitting = false;
+            setOKButtonIcon(null);
+            getOKAction().setEnabled(true);
+            getCancelAction().setEnabled(true);
         }
+
+        @Override protected JComponent createCenterPanel() { return form; }
     }
 
     @FunctionalInterface

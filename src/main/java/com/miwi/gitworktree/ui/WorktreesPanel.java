@@ -23,17 +23,21 @@ import com.intellij.openapi.ide.CopyPasteManager;
 import com.intellij.openapi.vcs.ProjectLevelVcsManager;
 import com.intellij.openapi.vcs.VcsMappingListener;
 import com.intellij.ui.JBColor;
+import com.intellij.ui.AnimatedIcon;
 import com.intellij.util.ui.JBUI;
 import com.miwi.gitworktree.model.WorktreeEntry;
 import com.miwi.gitworktree.service.ModalOperation;
 import com.miwi.gitworktree.service.WorktreeService;
 import com.miwi.gitworktree.service.WorktreeRemovalPolicy;
+import com.miwi.gitworktree.actions.CreateWorktreeFromBranchAction;
+import git4idea.GitLocalBranch;
 import git4idea.repo.GitRepository;
 import git4idea.repo.GitRepositoryChangeListener;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.JButton;
+import javax.swing.Icon;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
@@ -75,8 +79,10 @@ public final class WorktreesPanel extends JPanel implements Disposable {
     private final WorktreeHighlight highlight = new WorktreeHighlight(tree);
     private final JLabel helpLabel = new JLabel();
     private Runnable pendingButtonAction;
-    private final JButton refreshButton = new JButton(I18n.text("action.refresh"));
-    private final JButton settingsButton = new JButton(AllIcons.General.Gear);
+    private final ToolbarIconButton refreshButton = createToolbarButton("action.refresh", "/icons/refresh.svg", this::refresh);
+    private final ToolbarIconButton settingsButton = createToolbarButton("settings.title",
+            new ScaledIcon(AllIcons.General.Gear, 16),
+            this::openSettings);
     private final javax.swing.Timer actionButtonClickTimer = new javax.swing.Timer(350, event -> {
         Runnable action = pendingButtonAction;
         pendingButtonAction = null;
@@ -105,17 +111,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         tree.setRowHeight(JBUI.scale(29));
         startupRefreshTimer.setRepeats(false);
         refreshButton.setToolTipText(I18n.text("action.refresh"));
-        refreshButton.addActionListener(event -> refresh());
         settingsButton.setToolTipText(I18n.text("settings.title"));
-        settingsButton.setBorderPainted(false);
-        settingsButton.setContentAreaFilled(false);
-        settingsButton.setFocusPainted(false);
-        settingsButton.setMargin(JBUI.emptyInsets());
-        settingsButton.setBorder(JBUI.Borders.empty());
-        settingsButton.setPreferredSize(JBUI.size(28, 28));
-        settingsButton.setMinimumSize(JBUI.size(28, 28));
-        settingsButton.setMaximumSize(JBUI.size(28, 28));
-        settingsButton.addActionListener(event -> openSettings());
 
         JPanel toolbarActions = new JPanel(new FlowLayout(FlowLayout.LEFT, JBUI.scale(6), 0));
         toolbarActions.add(refreshButton);
@@ -210,6 +206,15 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         updateListHelp();
     }
 
+    private static ToolbarIconButton createToolbarButton(String tooltipKey, String iconPath, Runnable action) {
+        Icon icon = com.intellij.openapi.util.IconLoader.getIcon(iconPath, WorktreesPanel.class);
+        return createToolbarButton(tooltipKey, new ScaledIcon(icon, 14), action);
+    }
+
+    private static ToolbarIconButton createToolbarButton(String tooltipKey, Icon icon, Runnable action) {
+        return new ToolbarIconButton(I18n.text(tooltipKey), icon, event -> action.run());
+    }
+
     private void scheduleStartupRefresh() {
         if (disposed || project.isDisposed()) return;
         Runnable schedule = () -> {
@@ -296,7 +301,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         root.removeAllChildren();
         root.add(new DefaultMutableTreeNode(new RootLabel(I18n.text("tree.loading"))));
         ((DefaultTreeModel) tree.getModel()).reload();
-        refreshButton.setEnabled(false);
+        refreshButton.setBusy(true, AnimatedIcon.Default.INSTANCE);
         highlight.afterRebuild(root);
     }
 
@@ -326,7 +331,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
             return;
         }
         long version = ++refreshVersion;
-        refreshButton.setEnabled(false);
+        refreshButton.setBusy(true, AnimatedIcon.Default.INSTANCE);
         ApplicationManager.getApplication().executeOnPooledThread(() -> {
             try {
                 List<WorktreeEntry> entries = WorktreeService.list(project);
@@ -348,7 +353,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
                         scheduleStartupRefresh();
                         return;
                     }
-                    refreshButton.setEnabled(true);
+                    refreshButton.setBusy(false, AnimatedIcon.Default.INSTANCE);
                     Messages.showErrorDialog(project, message(e), I18n.text("title.manager"));
                 });
             }
@@ -418,7 +423,7 @@ public final class WorktreesPanel extends JPanel implements Disposable {
             Object item = ((DefaultMutableTreeNode) tree.getPathForRow(row).getLastPathComponent()).getUserObject();
             if (item instanceof RepositoryLabel) tree.expandRow(row);
         }
-        refreshButton.setEnabled(true);
+        refreshButton.setBusy(false, AnimatedIcon.Default.INSTANCE);
         highlight.afterRebuild(root);
     }
 
@@ -428,7 +433,6 @@ public final class WorktreesPanel extends JPanel implements Disposable {
 
     private void updateLanguage() {
         if (disposed || project.isDisposed()) return;
-        refreshButton.setText(I18n.text("action.refresh"));
         refreshButton.setToolTipText(I18n.text("action.refresh"));
         settingsButton.setToolTipText(I18n.text("settings.title"));
         updateListHelp();
@@ -455,6 +459,11 @@ public final class WorktreesPanel extends JPanel implements Disposable {
         Object value = ((DefaultMutableTreeNode) path.getLastPathComponent()).getUserObject();
         JPopupMenu menu = new JPopupMenu();
         if (value instanceof WorktreeEntry entry) {
+            if (!entry.branch().isBlank() && !entry.detached() && !entry.bare()
+                    && !entry.branch().equals("(no branch)")) {
+                add(menu, "branch.createFrom", () -> createFromWorktree(entry));
+                menu.addSeparator();
+            }
             if (WorktreeService.canOpenWorktree(entry)) add(menu, "action.openWorktree", () -> openWorktree(entry));
             if (WorktreeService.canOpenFolder(entry)) add(menu, "action.open", () -> open(entry));
             String lockOperation = entry.locked() ? "unlock" : "lock";
@@ -479,6 +488,22 @@ public final class WorktreesPanel extends JPanel implements Disposable {
                     .setContents(new java.awt.datatransfer.StringSelection(detail.value())));
         }
         if (menu.getComponentCount() > 0) menu.show(event.getComponent(), event.getX(), event.getY());
+    }
+
+    private void createFromWorktree(WorktreeEntry entry) {
+        // The row may belong to another open project; never silently use this window's first repo.
+        for (Project opened : ProjectManager.getInstance().getOpenProjects()) {
+            if (opened.isDisposed()) continue;
+            for (GitRepository repository : git4idea.repo.GitRepositoryManager.getInstance(opened).getRepositories()) {
+                if (com.miwi.gitworktree.service.WorktreePaths.same(Path.of(entry.repositoryRoot()),
+                        Path.of(repository.getRoot().getPath()))) {
+                    new CreateWorktreeFromBranchAction().openCreateDialog(project, repository,
+                            new GitLocalBranch(entry.branch()), true);
+                    return;
+                }
+            }
+        }
+        Messages.showWarningDialog(project, I18n.text("error.noRepository"), I18n.text("title.create"));
     }
 
     private void addWorktreeAction(JPopupMenu menu, WorktreeEntry entry, String operation,

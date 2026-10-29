@@ -68,9 +68,9 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
     private final JLabel hideListHelpHint = new JLabel();
     private final JCheckBox hideMoveDeleteCheckBox = new JCheckBox();
     private final JLabel hideMoveDeleteHint = new JLabel();
-    private final JCheckBox showMainProtectedActionsCheckBox = new JCheckBox();
-    private final JLabel showMainProtectedActionsHint = new JLabel();
-    private final JLabel mainProtectedActionsList = new JLabel();
+    private final JLabel parallelPrefixLabel = new JLabel();
+    private final JTextField parallelBranchPrefixField = new JTextField(24);
+    private final JLabel parallelPrefixHint = new JLabel();
     private final Action feedbackAction = new AbstractAction() {
         @Override public void actionPerformed(ActionEvent event) {
             // Opening the issue page must not save or close the settings dialog.
@@ -80,20 +80,22 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
     private TitledBorder languageSectionBorder;
     private TitledBorder displaySectionBorder;
     private TitledBorder operationSectionBorder;
+    private TitledBorder parallelSectionBorder;
     private JPanel settingsPanel;
     private boolean reloadingLanguageOptions;
     private final String originalLanguage;
     private final boolean originalShowListHelp;
-    private final boolean originalShowMainProtectedActions;
     private final boolean originalHideMoveDelete;
+    private final String originalParallelBranchPrefix;
 
     public WorktreeSettingsDialog(Project project) {
         super(project);
         this.project = project;
         this.originalLanguage = I18n.language();
         this.originalShowListHelp = WorktreePreferences.showListHelp();
-        this.originalShowMainProtectedActions = WorktreePreferences.showMainProtectedActions();
         this.originalHideMoveDelete = WorktreePreferences.hideMoveDeleteActions();
+        this.originalParallelBranchPrefix = WorktreePreferences.parallelBranchPrefix();
+        parallelBranchPrefixField.setText(originalParallelBranchPrefix);
         setTitle(I18n.text("settings.title"));
         reloadLanguageOptions();
         languageBox.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
@@ -120,7 +122,7 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         settingsPanel = panel;
 
         JPanel languageSection = new JPanel(new GridBagLayout());
-        languageSectionBorder = BorderFactory.createTitledBorder(I18n.text("settings.section.language"));
+        languageSectionBorder = createSectionBorder(I18n.text("settings.section.language"));
         languageSection.setBorder(languageSectionBorder);
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.insets = new Insets(4, 6, 4, 6);
@@ -146,13 +148,11 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         languageSection.add(languageActionsPanel, constraints);
 
         JPanel displaySection = new JPanel(new GridBagLayout());
-        displaySectionBorder = BorderFactory.createTitledBorder(I18n.text("settings.section.display"));
+        displaySectionBorder = createSectionBorder(I18n.text("settings.section.display"));
         displaySection.setBorder(displaySectionBorder);
         hideListHelpCheckBox.setSelected(WorktreePreferences.showListHelp() == false);
         hideListHelpCheckBox.addActionListener(event -> updateListHelpHint());
         hideMoveDeleteCheckBox.setSelected(WorktreePreferences.hideMoveDeleteActions());
-        showMainProtectedActionsCheckBox.setSelected(WorktreePreferences.showMainProtectedActions());
-        showMainProtectedActionsCheckBox.addActionListener(event -> handleMainProtectedActionsToggle());
         constraints = new GridBagConstraints();
         constraints.insets = new Insets(4, 6, 2, 6);
         constraints.gridx = 0;
@@ -164,8 +164,9 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         constraints.gridy = 1;
         constraints.insets = new Insets(0, 28, 4, 6);
         displaySection.add(hideListHelpHint, constraints);
+
         JPanel operationSection = new JPanel(new GridBagLayout());
-        operationSectionBorder = BorderFactory.createTitledBorder(I18n.text("settings.section.operations"));
+        operationSectionBorder = createSectionBorder(I18n.text("settings.section.operations"));
         operationSection.setBorder(operationSectionBorder);
         constraints.gridy = 0;
         constraints.insets = new Insets(4, 6, 2, 6);
@@ -173,19 +174,40 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         constraints.gridy = 1;
         constraints.insets = new Insets(0, 28, 4, 6);
         operationSection.add(hideMoveDeleteHint, constraints);
-        constraints.gridy = 2;
-        constraints.insets = new Insets(8, 6, 2, 6);
-        operationSection.add(showMainProtectedActionsCheckBox, constraints);
-        constraints.gridy = 3;
-        constraints.insets = new Insets(0, 28, 2, 6);
-        operationSection.add(showMainProtectedActionsHint, constraints);
-        constraints.gridy = 4;
-        constraints.insets = new Insets(0, 28, 6, 6);
-        operationSection.add(mainProtectedActionsList, constraints);
 
-        JPanel preferences = new JPanel(new BorderLayout(0, 8));
-        preferences.add(displaySection, BorderLayout.NORTH);
-        preferences.add(operationSection, BorderLayout.CENTER);
+        JPanel parallelSection = new JPanel(new GridBagLayout());
+        parallelSectionBorder = createSectionBorder(I18n.text("settings.section.parallel"));
+        parallelSection.setBorder(parallelSectionBorder);
+        constraints.gridy = 0;
+        constraints.insets = new Insets(4, 6, 4, 6);
+        constraints.gridx = 0;
+        constraints.weightx = 0;
+        constraints.fill = GridBagConstraints.NONE;
+        parallelSection.add(parallelPrefixLabel, constraints);
+        constraints.gridx = 1;
+        constraints.weightx = 1;
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+        parallelSection.add(parallelBranchPrefixField, constraints);
+        constraints.gridx = 0;
+        constraints.gridy = 1;
+        constraints.gridwidth = 2;
+        constraints.insets = new Insets(0, 28, 4, 6);
+        parallelSection.add(parallelPrefixHint, constraints);
+
+        JPanel preferences = new JPanel(new GridBagLayout());
+        GridBagConstraints section = new GridBagConstraints();
+        section.gridx = 0;
+        section.gridy = 0;
+        section.gridwidth = 1;
+        section.weightx = 1;
+        section.fill = GridBagConstraints.HORIZONTAL;
+        section.insets = new Insets(0, 0, 8, 0);
+        preferences.add(displaySection, section);
+        section.gridy++;
+        preferences.add(operationSection, section);
+        section.gridy++;
+        section.insets = new Insets(8, 0, 0, 0);
+        preferences.add(parallelSection, section);
 
         panel.setBorder(JBUI.Borders.empty(4));
         panel.add(languageSection, BorderLayout.NORTH);
@@ -222,21 +244,21 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         if (languageSectionBorder != null) languageSectionBorder.setTitle(I18n.text("settings.section.language"));
         if (displaySectionBorder != null) displaySectionBorder.setTitle(I18n.text("settings.section.display"));
         if (operationSectionBorder != null) operationSectionBorder.setTitle(I18n.text("settings.section.operations"));
+        if (parallelSectionBorder != null) parallelSectionBorder.setTitle(I18n.text("settings.section.parallel"));
+        updateSectionBorderColors();
         hideMoveDeleteCheckBox.setText(I18n.text("settings.hideMoveDelete"));
         hideMoveDeleteHint.setText("<html>" + I18n.text("settings.hideMoveDeleteHint") + "</html>");
+        parallelPrefixLabel.setText(I18n.text("settings.parallelBranchPrefix"));
+        parallelBranchPrefixField.setToolTipText(I18n.text("settings.parallelBranchPrefixHint"));
+        parallelPrefixHint.setText("<html>" + I18n.text("settings.parallelBranchPrefixHint") + "</html>");
         feedbackAction.putValue(Action.NAME, I18n.text("settings.feedback"));
         feedbackAction.putValue(Action.SHORT_DESCRIPTION, I18n.text("settings.feedbackHint"));
         hideListHelpCheckBox.setText(I18n.text("settings.hideListHelp"));
         updateListHelpHint();
-        // A new label key avoids resurrecting the previous bundled suffix from persisted language files.
-        showMainProtectedActionsCheckBox.setText(I18n.text("settings.showMainProtectedActionsLabel"));
-        showMainProtectedActionsHint.setText("<html>" + I18n.text("settings.showMainProtectedActionsHint") + "</html>");
-        mainProtectedActionsList.setText("<html>" + I18n.text("settings.mainProtectedActionsList") + "</html>");
         Color muted = UIManager.getColor("Label.disabledForeground");
         if (muted != null) {
             hideMoveDeleteHint.setForeground(muted);
-            showMainProtectedActionsHint.setForeground(muted);
-            mainProtectedActionsList.setForeground(muted);
+            parallelPrefixHint.setForeground(muted);
         }
         setOKButtonText(I18n.text("button.save"));
         setCancelButtonText(I18n.text("button.cancel"));
@@ -250,18 +272,43 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         }
     }
 
+    private static TitledBorder createSectionBorder(String title) {
+        Color color = sectionBorderColor();
+        return BorderFactory.createTitledBorder(BorderFactory.createLineBorder(color), title);
+    }
+
+    private void updateSectionBorderColors() {
+        Color color = sectionBorderColor();
+        Border border = BorderFactory.createLineBorder(color);
+        if (languageSectionBorder != null) languageSectionBorder.setBorder(border);
+        if (displaySectionBorder != null) displaySectionBorder.setBorder(border);
+        if (operationSectionBorder != null) operationSectionBorder.setBorder(border);
+        if (parallelSectionBorder != null) parallelSectionBorder.setBorder(border);
+    }
+
+    private static Color sectionBorderColor() {
+        // Match the standard dialog buttons' outline and resolve it from the active IDE theme.
+        Color color = UIManager.getColor("Button.borderColor");
+        if (color == null) color = UIManager.getColor("Button.darcula.borderColor");
+        if (color == null) color = UIManager.getColor("Component.borderColor");
+        if (color == null) {
+            color = new com.intellij.ui.JBColor(new Color(0xD1D1D1), new Color(0x41464E));
+        }
+        return color;
+    }
+
     @Override public void doCancelAction() {
         I18n.setLanguage(originalLanguage);
         WorktreePreferences.setShowListHelp(originalShowListHelp);
-        WorktreePreferences.setShowMainProtectedActions(originalShowMainProtectedActions);
         WorktreePreferences.setHideMoveDeleteActions(originalHideMoveDelete);
+        WorktreePreferences.setParallelBranchPrefix(originalParallelBranchPrefix);
         super.doCancelAction();
     }
 
     @Override protected void doOKAction() {
         WorktreePreferences.setShowListHelp(!hideListHelpCheckBox.isSelected());
-        WorktreePreferences.setShowMainProtectedActions(showMainProtectedActionsCheckBox.isSelected());
         WorktreePreferences.setHideMoveDeleteActions(hideMoveDeleteCheckBox.isSelected());
+        WorktreePreferences.setParallelBranchPrefix(parallelBranchPrefixField.getText());
         super.doOKAction();
     }
 
@@ -269,14 +316,6 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
         hideListHelpHint.setText("<html>" + I18n.text("settings.hideListHelpHint") + "</html>");
         Color muted = UIManager.getColor("Label.disabledForeground");
         if (muted != null) hideListHelpHint.setForeground(muted);
-    }
-
-    private void handleMainProtectedActionsToggle() {
-        if (!showMainProtectedActionsCheckBox.isSelected()) return;
-        int answer = Messages.showYesNoDialog(project,
-                I18n.text("confirm.showMainProtectedActions"),
-                I18n.text("title.confirm"), Messages.getWarningIcon());
-        if (answer != 0) showMainProtectedActionsCheckBox.setSelected(false);
     }
 
     private void editTranslations() {
@@ -526,6 +565,9 @@ public final class WorktreeSettingsDialog extends DialogWrapper {
             search.addActionListener(event -> showSearch.run());
             panel.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
                     .put(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK), "openTranslationSearch");
+            // Keep Ctrl+F while supporting the native macOS Find shortcut in every host IDE.
+            panel.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+                    .put(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.META_DOWN_MASK), "openTranslationSearch");
             panel.getActionMap().put("openTranslationSearch", new AbstractAction() {
                 @Override public void actionPerformed(ActionEvent event) { showSearch.run(); }
             });

@@ -33,6 +33,7 @@ public final class RegressionChecks {
                 packaged = FlatJson.parse(new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
             }
             var actualKeys = new java.util.LinkedHashSet<>(packaged.keySet());
+            // Keep retired translation keys import-compatible; no settings UI consumes these labels anymore.
             for (String key : List.of("settings.showMainProtectedActionsLabel", "settings.showMainProtectedActions", "settings.showProtectedActions")) {
                 String label = packaged.get(key);
                 check(label != null && !java.util.regex.Pattern.compile("[（(][^（）()]*[）)]\\s*$")
@@ -102,6 +103,7 @@ public final class RegressionChecks {
                     "settings.hideListHelpHint", "settings.showProtectedActions",
                     "settings.showProtectedActionsHint", "settings.protectedActionsList",
                     "settings.section.operations", "settings.hideMoveDelete", "settings.hideMoveDeleteHint",
+                    "settings.section.parallel", "settings.parallelBranchPrefix", "settings.parallelBranchPrefixHint",
                     "settings.showMainProtectedActions", "settings.showMainProtectedActionsHint",
                     "settings.mainProtectedActionsList", "confirm.showMainProtectedActions",
                     "settings.feedback", "settings.feedbackHint",
@@ -109,13 +111,19 @@ public final class RegressionChecks {
                     "menu.protectedReason.main", "menu.protectedReason.mainLock",
                     "menu.protectedReason.current", "menu.protectedReason.locked",
                     "menu.protectedReason.unavailable", "tree.loading",
-                    "create.mode", "create.mode.existing", "create.mode.new", "create.mode.detached",
+                    "branch.createFrom", "create.chooseMethod", "create.startBranch", "create.otherReference",
+                    "create.resetPath", "create.localBranch", "create.remoteBranch", "error.branchExists",
+                    "error.branchInvalid", "error.startPointInvalid", "error.pathRequired",
+                    "create.mode.existing", "create.mode.new", "create.mode.detached",
                     "create.mode.orphan", "create.branchName", "create.startPoint", "create.noCheckout",
+                    "create.parallelMode", "create.parallelModeHint",
                     "error.deleteStaleWorktree", "error.pruneHealthyWorktree")) {
                 check(catalog.messages(language.id()).containsKey(key), "Message configured: " + key);
             }
         }
         Map<String, String> simplifiedChinese = catalog.messages("zh-CN");
+        equal(simplifiedChinese.get("create.chooseMethod"), "选择创建工作区的方式", "Creation heading uses the requested wording");
+        check(!simplifiedChinese.containsKey("create.mode"), "Redundant creation-mode label removed");
         equal(simplifiedChinese.get("content.worktrees"), "工作区列表",
                 "Simplified Chinese retains the latest user wording");
         equal(simplifiedChinese.get("action.delete"), "删除工作区",
@@ -133,22 +141,26 @@ public final class RegressionChecks {
         properties.values.remove("git.worktree.sport.showListHelp");
         properties.values.remove("git.worktree.sport.showProtectedActions");
         properties.values.remove("git.worktree.sport.hideMoveDeleteActions");
+        properties.values.remove("git.worktree.sport.parallelBranchPrefix");
         check(WorktreePreferences.showListHelp(), "Worktree list help is visible by default");
-        check(!WorktreePreferences.showMainProtectedActions(), "Main protected Move/Delete are hidden by default");
         check(!WorktreePreferences.hideMoveDeleteActions(), "Global Move/Delete hiding is off by default");
+        check(WorktreePreferences.parallelBranchPrefix().equals("sync-git"), "Parallel branch prefix defaults to sync-git");
         WorktreePreferences.setShowListHelp(false);
-        WorktreePreferences.setShowMainProtectedActions(true);
-        check(!WorktreePreferences.showListHelp() && WorktreePreferences.showMainProtectedActions()
-                        && !WorktreePreferences.hideMoveDeleteActions(),
+        check(!WorktreePreferences.showListHelp() && !WorktreePreferences.hideMoveDeleteActions(),
                 "Worktree display preferences persist independently");
         WorktreePreferences.setHideMoveDeleteActions(true);
-        check(WorktreePreferences.hideMoveDeleteActions() && WorktreePreferences.showMainProtectedActions(),
-                "Global hiding and main visibility can be saved independently");
-        properties.setValue("git.worktree.sport.showProtectedActions", "true");
-        check(WorktreePreferences.showMainProtectedActions(), "Previous protected menu preference migrates safely");
+        check(WorktreePreferences.hideMoveDeleteActions(), "Global hiding preference persists");
+        WorktreePreferences.setParallelBranchPrefix(" //sync-git// ");
+        equal(WorktreePreferences.parallelBranchPrefix(), "sync-git", "Parallel prefix trims surrounding whitespace and slashes");
+        equal(WorktreePreferences.parallelBranchName("sync-git/sync-git/feature/task"), "sync-git/feature/task",
+                "Parallel branch formatter avoids applying its prefix twice");
+        WorktreePreferences.setParallelBranchPrefix("///");
+        equal(WorktreePreferences.parallelBranchPrefix(), "", "An empty normalized prefix is supported");
+        equal(WorktreePreferences.parallelBranchName("feature/task"), "feature/task",
+                "An empty prefix leaves the new branch name unchanged");
         WorktreePreferences.setShowListHelp(true);
-        WorktreePreferences.setShowMainProtectedActions(false);
         WorktreePreferences.setHideMoveDeleteActions(false);
+        WorktreePreferences.setParallelBranchPrefix("sync-git");
         I18n.setLanguage(first.id());
         com.intellij.openapi.application.ApplicationNamesInfo.product = "IntelliJ IDEA";
         check(I18n.text("settings.languageHint").contains("IntelliJ IDEA"), "Actual IDE name replaces placeholder");
@@ -157,6 +169,11 @@ public final class RegressionChecks {
         I18n.importLanguageMessages(first.id(), productEditor.replace("{ideName}", "Android Studio"));
         check(I18n.text("settings.languageHint").contains("IntelliJ IDEA"), "Existing user text also resolves actual IDE name");
         I18n.importLanguageMessages(first.id(), productEditor);
+        for (String product : List.of("Android Studio", "IntelliJ IDEA", "PyCharm", "RustRover", "DataGrip", "WebStorm", "Unlisted Platform IDE")) {
+            com.intellij.openapi.application.ApplicationNamesInfo.product = product;
+            check(I18n.text("settings.languageHint").contains(product),
+                    "Product-name localization has no supported-product whitelist: " + product);
+        }
         com.intellij.openapi.application.ApplicationNamesInfo.product = "Test IDE";
         properties.setValue("git.worktree.sport.language", "system");
         properties.setValue("git.worktree.sport.customMessages", "action.refresh=Legacy custom\n");
@@ -239,32 +256,32 @@ public final class RegressionChecks {
         equal(catalog.languageForLocale(Locale.forLanguageTag("x-unconfigured")).id(), first.id(), "Unknown locale follows the first configured fallback");
 
         Path parent = Path.of(System.getProperty("java.io.tmpdir"), "worktree-sport-regression").toAbsolutePath();
-        String repo = parent.resolve("TalkInAs").toString();
-        WorktreeEntry detached1 = entry(repo, parent.resolve("one/TalkInAs"), "(detached)", "1234567890abcdef", false);
-        WorktreeEntry detached2 = entry(repo, parent.resolve("two/TalkInAs"), "(detached)", "abcdef1234567890", false);
+        String repo = parent.resolve("Demo").toString();
+        WorktreeEntry detached1 = entry(repo, parent.resolve("one/Demo"), "(detached)", "1234567890abcdef", false);
+        WorktreeEntry detached2 = entry(repo, parent.resolve("two/Demo"), "(detached)", "abcdef1234567890", false);
         WorktreeEntry main = entry(repo, Path.of(repo), "release", "0123456789abcdef", true);
         WorktreeEntry current = entry(repo, parent.resolve("current-worktree"), "current", "def", false).withCurrentProject(true);
-        WorktreeEntry linked = entry(repo, parent.resolve("TalkInAs-worktrees/feature"), "feature", "abc", false);
+        WorktreeEntry linked = entry(repo, parent.resolve("Demo-worktrees/feature"), "feature", "abc", false);
         WorktreeEntry locked = new WorktreeEntry(repo, parent.resolve("locked").toString(), "locked", "abc", false, false, false, true, false);
         List<WorktreeGroups.Group> groups = WorktreeGroups.group(List.of(detached1, detached2, main, linked));
         equal(groups.size(), 3, "Only duplicate display names grouped");
         equal(groups.get(0).entries().size(), 2, "Both worktrees retained under duplicate-name group");
-        equal(groups.get(0).name(), "TalkInAs", "Group name remains concise");
-        equal(WorktreeGroups.label(detached1, true), "TalkInAs  [12345678]", "First duplicate child has 8-character HEAD");
-        equal(WorktreeGroups.label(detached2, true), "TalkInAs  [abcdef12]", "Second duplicate child has its own HEAD");
+        equal(groups.get(0).name(), "Demo", "Group name remains concise");
+        equal(WorktreeGroups.label(detached1, true), "Demo  [12345678]", "First duplicate child has 8-character HEAD");
+        equal(WorktreeGroups.label(detached2, true), "Demo  [abcdef12]", "Second duplicate child has its own HEAD");
         equal(WorktreeGroups.label(main, false), "release", "Main item does not repeat repository prefix");
-        equal(WorktreeGroups.label(linked, false), "TalkInAs-worktrees/feature", "Worktree parent folder and branch preserved");
-        equal(WorktreeGroups.label(entry(repo, parent.resolve("TalkInAs-feature"), "feature/ui", "abc", false), false),
+        equal(WorktreeGroups.label(linked, false), "Demo-worktrees/feature", "Worktree parent folder and branch preserved");
+        equal(WorktreeGroups.label(entry(repo, parent.resolve("Demo-feature"), "feature/ui", "abc", false), false),
                 "feature/ui", "Sibling worktree has no artificial repository prefix");
-        equal(WorktreeGroups.label(entry(repo, parent.resolve("TalkInAs/child"), "feature/ui", "abc", false), false),
+        equal(WorktreeGroups.label(entry(repo, parent.resolve("Demo/child"), "feature/ui", "abc", false), false),
                 "feature/ui", "Nested worktree omits repeated repository folder");
-        equal(WorktreeGroups.label(entry(repo, parent.resolve("other/TalkInAs/child"), "feature", "abc", false), false),
+        equal(WorktreeGroups.label(entry(repo, parent.resolve("other/Demo/child"), "feature", "abc", false), false),
                 "feature", "Repeated parent name omitted outside repository");
-        equal(WorktreeGroups.label(entry(repo, Path.of(repo), "TalkInAs/feature", "abc", true), false),
-                "TalkInAs/feature", "Branch names containing repository name not damaged");
+        equal(WorktreeGroups.label(entry(repo, Path.of(repo), "Demo/feature", "abc", true), false),
+                "Demo/feature", "Branch names containing repository name not damaged");
         equal(WorktreeGroups.label(entry(repo, parent.resolve("one/empty"), "", "", false), false),
                 "empty", "Branchless worktree keeps folder name");
-        var sameBranch = WorktreeGroups.group(List.of(main, entry(repo, parent.resolve("TalkInAs-release"), "release", "abcdef", false)));
+        var sameBranch = WorktreeGroups.group(List.of(main, entry(repo, parent.resolve("Demo-release"), "release", "abcdef", false)));
         equal(sameBranch.size(), 1, "Removing prefixes preserves grouping by final visible name");
         equal(sameBranch.get(0).entries().size(), 2, "Both same-branch paths retained for context actions");
         equal(linked.shortHead(), "abc", "Short commit IDs not truncated incorrectly");
@@ -374,9 +391,9 @@ public final class RegressionChecks {
 
     private static void checkActionVisibility(String repository, Path existing) {
         for (boolean globalHide : List.of(false, true)) {
-            for (boolean showMain : List.of(false, true)) {
+            for (boolean legacyShowMain : List.of(false, true)) {
                 WorktreePreferences.setHideMoveDeleteActions(globalHide);
-                WorktreePreferences.setShowMainProtectedActions(showMain);
+                PropertiesComponent.getInstance().setValue("git.worktree.sport.showProtectedActions", Boolean.toString(legacyShowMain));
                 for (boolean main : List.of(false, true)) {
                     for (boolean current : List.of(false, true)) {
                         for (boolean locked : List.of(false, true)) {
@@ -387,20 +404,25 @@ public final class RegressionChecks {
                                         false, locked, missing, current);
                                 WorktreeEntry.CleanupDeleteAction cleanup = entry.cleanupDeleteAction();
                                 boolean canDelete = cleanup == WorktreeEntry.CleanupDeleteAction.DELETE;
-                                WorktreeActionVisibility.State expectedDelete = globalHide
+                                WorktreeActionVisibility.State expectedDelete = globalHide || main
                                         ? WorktreeActionVisibility.State.HIDDEN
-                                        : main ? (showMain ? WorktreeActionVisibility.State.DISABLED
-                                                : WorktreeActionVisibility.State.HIDDEN)
                                         : canDelete ? WorktreeActionVisibility.State.ENABLED
                                                 : WorktreeActionVisibility.State.HIDDEN;
                                 for (String operation : List.of("move", "delete")) {
                                     equal(WorktreeActionVisibility.state(entry, operation, canDelete), expectedDelete,
-                                            "Move/Delete visibility matrix: " + operation);
+                                            "Move/Delete visibility ignores obsolete main preference: " + operation);
+                                }
+                                if (main) {
+                                    for (String operation : List.of("move", "delete", "lock", "unlock")) {
+                                        equal(WorktreeActionVisibility.state(entry, operation, true),
+                                                WorktreeActionVisibility.State.HIDDEN,
+                                                "Main Git limitations cannot be bypassed by stale availability or preferences");
+                                    }
                                 }
                                 for (String operation : List.of("lock", "unlock")) {
                                     boolean matchingLockState = operation.equals("unlock") == locked;
                                     boolean allowed = !entry.protectedFromGitLockChanges() && matchingLockState;
-                                    WorktreeActionVisibility.State expectedLock = !matchingLockState
+                                    WorktreeActionVisibility.State expectedLock = main || !matchingLockState
                                             ? WorktreeActionVisibility.State.HIDDEN
                                             : allowed ? WorktreeActionVisibility.State.ENABLED
                                                     : WorktreeActionVisibility.State.DISABLED;
@@ -427,7 +449,7 @@ public final class RegressionChecks {
             }
         }
         WorktreePreferences.setHideMoveDeleteActions(false);
-        WorktreePreferences.setShowMainProtectedActions(false);
+        PropertiesComponent.getInstance().values.remove("git.worktree.sport.showProtectedActions");
     }
 
     private static void equal(Object actual, Object expected, String label) {

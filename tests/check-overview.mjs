@@ -8,7 +8,7 @@ const descriptor = fs.readFileSync(path.join(root, 'src/main/resources/META-INF/
 const embedded = descriptor.match(/<description><!\[CDATA\[\s*([\s\S]*?)\s*\]\]><\/description>/)?.[1];
 assert(embedded?.trim(), 'Plugin descriptor contains an Overview description');
 assert(!descriptor.includes('example.invalid'), 'Placeholder vendor contact removed');
-assert(descriptor.includes('<id>com.miwi.talkinas.gitworktree</id>'), 'Existing installed plugin identity remains stable');
+assert(descriptor.includes('<id>com.miwi.talkinas.gitworktree</id>'), 'Existing Marketplace plugin identity remains stable');
 assert(descriptor.includes('<version>1.0.4</version>'), 'Plugin descriptor carries release version 1.0.4');
 const releaseVersion = descriptor.match(/<version>([^<]+)<\/version>/)[1];
 const buildScript = fs.readFileSync(path.join(root, 'build.gradle.kts'), 'utf8');
@@ -32,6 +32,7 @@ if (fs.existsSync(descriptionPath)) {
   assert(!/[\u3400-\u9fff]/.test(description), 'Default Overview does not concatenate localized descriptions');
   assert(!/<(?:script|iframe|select|button)\b/i.test(description), 'Marketplace description uses static HTML');
   assert(!/file:|localhost|127\.0\.0\.1|C:\\|D:\\|\.\.\/|example\.invalid/.test(description), 'No machine-specific paths in listing copy');
+  assert(/Parallel mode/.test(description) && /sync-git\//.test(description), 'Marketplace Overview explains the configurable parallel branch prefix');
 }
 if (fs.existsSync(guidePath)) {
   overviewChecksAvailable = true;
@@ -48,6 +49,7 @@ if (fs.existsSync(guidePath)) {
     assert(guide.includes(`id="${target}"`), `Guide navigation anchor exists: ${target}`);
   }
   assert(!guide.includes('banner-candidate'), 'Unapproved AI candidate is not integrated');
+  assert(/Parallel mode/.test(guide) && /sync-git\//.test(guide), 'Guide explains parallel worktree creation');
 }
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'src/main/resources/i18n/languages.json'), 'utf8'));
 assert.equal(Object.keys(manifest).length, 10, 'Documentation pack count matches runtime catalog');

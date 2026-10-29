@@ -94,6 +94,87 @@ public final class WorktreeService {
         return new CreateConflict(CreateConflictType.NONE, null);
     }
 
+    /** Checks the local ref namespace before the create dialog starts a Git operation. */
+    public static boolean localBranchExists(Path repositoryRoot, String branchName)
+            throws IOException, InterruptedException {
+        if (branchName == null || branchName.isBlank()) return false;
+        GitCommandRunner.Result result = GitCommandRunner.run(repositoryRoot.toAbsolutePath().normalize(),
+                "show-ref", "--verify", "--quiet", "refs/heads/" + branchName.trim());
+        if (result.exitCode() != 0 && result.exitCode() != 1) {
+            throw new IOException(result.output());
+        }
+        return result.exitCode() == 0;
+    }
+
+    public record BranchReference(String reference, String name, boolean remote) {}
+    public enum CreateField { PATH, BRANCH, START_POINT }
+    public record CreateIssue(CreateField field, String message) {}
+
+    /** Reads Git refs rather than a possibly stale IDE branch cache. Full refs avoid tag/name ambiguity. */
+    public static List<BranchReference> creationBranches(Path root) throws Exception {
+        String refs = GitCommandRunner.requireSuccess(root, "for-each-ref", "--format=%(refname)%09%(symref)",
+                "refs/heads/", "refs/remotes/");
+        List<BranchReference> choices = new ArrayList<>();
+        for (String line : refs.lines().toList()) {
+            String[] parts = line.split("\t", -1);
+            if (parts.length > 1 && !parts[1].isBlank()) continue;
+            String ref = parts[0];
+            boolean remote = ref.startsWith("refs/remotes/");
+            String prefix = remote ? "refs/remotes/" : "refs/heads/";
+            if (ref.startsWith(prefix)) choices.add(new BranchReference(ref, ref.substring(prefix.length()), remote));
+        }
+        choices.sort(java.util.Comparator.comparing(BranchReference::remote)
+                .thenComparing(BranchReference::name, String.CASE_INSENSITIVE_ORDER));
+        return List.copyOf(choices);
+    }
+
+    /** Non-mutating preflight for the dialog: report all conflicting fields in a single pass. */
+    public static List<CreateIssue> validateCreateInputs(Path root, String targetText, CreateSpec spec) throws Exception {
+        List<CreateIssue> issues = new ArrayList<>();
+        try {
+            if (targetText == null || targetText.isBlank()) {
+                issues.add(new CreateIssue(CreateField.PATH, I18n.text("error.pathRequired")));
+            } else {
+                Path target = Path.of(targetText.trim()).toAbsolutePath().normalize();
+                if (WorktreePaths.same(target, root)) {
+                    issues.add(new CreateIssue(CreateField.PATH, I18n.text("error.targetRepositoryRoot")));
+                } else if (Files.exists(target, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                    issues.add(new CreateIssue(CreateField.PATH, I18n.format("error.targetExists", target)));
+                } else if (target.getParent() == null || !Files.isDirectory(target.getParent())) {
+                    issues.add(new CreateIssue(CreateField.PATH, I18n.format("error.parentMissing", target.getParent())));
+                }
+            }
+        } catch (java.nio.file.InvalidPathException e) {
+            issues.add(new CreateIssue(CreateField.PATH, I18n.format("error.invalidPath", e.getMessage())));
+        }
+        if (spec.mode() == CreateMode.NEW_BRANCH || spec.mode() == CreateMode.ORPHAN) {
+            String name = spec.branchName();
+            GitCommandRunner.Result checked = GitCommandRunner.run(root, "check-ref-format", "--branch", name);
+            // Git accepts @{-1} as shorthand here. New names must be literal, not checkout-history expansion.
+            if (checked.exitCode() != 0 || !checked.output().equals(name)) {
+                issues.add(new CreateIssue(CreateField.BRANCH, I18n.format("error.branchInvalid", name)));
+            } else {
+                String proposedRef = "refs/heads/" + name;
+                boolean collision = localBranchExists(root, name) || creationBranches(root).stream().filter(ref -> !ref.remote())
+                        .anyMatch(ref -> ref.reference().equals(proposedRef)
+                                || ref.reference().startsWith(proposedRef + "/")
+                                || proposedRef.startsWith(ref.reference() + "/"));
+                // Unborn (orphan) branches have no refs yet, but their registered names are reserved too.
+                collision |= listForRepository(root).stream().anyMatch(entry -> entry.branch().equals(name)
+                        || entry.branch().startsWith(name + "/") || name.startsWith(entry.branch() + "/"));
+                if (collision) issues.add(new CreateIssue(CreateField.BRANCH, I18n.format("error.branchExists", name)));
+            }
+        }
+        if (spec.mode() == CreateMode.NEW_BRANCH || spec.mode() == CreateMode.DETACHED) {
+            String ref = spec.startPoint();
+            if (ref.isBlank() || GitCommandRunner.run(root, "rev-parse", "--verify", "--end-of-options",
+                    ref + "^{commit}").exitCode() != 0) {
+                issues.add(new CreateIssue(CreateField.START_POINT, I18n.format("error.startPointInvalid", ref)));
+            }
+        }
+        return List.copyOf(issues);
+    }
+
     public static void create(Path repositoryRoot, Path target, BranchSpec branch) throws Exception {
         create(repositoryRoot, target, branch, CreateResolution.NORMAL);
     }

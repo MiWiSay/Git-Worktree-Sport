@@ -22,8 +22,9 @@ public final class IconSmokeCheck {
         g.fillRect(0, 0, preview.getWidth(), preview.getHeight());
         String[] files = {"icons/worktreeSport.svg", "icons/worktreeSport_dark.svg",
                 "icons/worktreeSport@20x20.svg", "icons/worktreeSport@20x20_dark.svg",
-                "META-INF/pluginIcon.svg", "META-INF/pluginIcon_dark.svg"};
-        int[] sizes = {16, 16, 20, 20, 40, 40};
+                "META-INF/pluginIcon.svg", "META-INF/pluginIcon_dark.svg",
+                "icons/refresh.svg", "icons/refresh_dark.svg"};
+        int[] sizes = {16, 16, 20, 20, 40, 40, 16, 16};
         for (int i = 0; i < files.length; i++) {
             Image icon = SVGLoader.load(resources.resolve(files[i]).toUri().toURL(), 1f);
             if (icon.getWidth(null) != sizes[i] || icon.getHeight(null) != sizes[i]) throw new AssertionError(files[i]);
@@ -49,6 +50,6 @@ public final class IconSmokeCheck {
         g.drawString("Selected palette preview (20px)", 100, 158);
         g.dispose();
         ImageIO.write(preview, "png", output.resolve("icon-preview.png").toFile());
-        System.out.println("PASS: 6 SVG assets rendered by target IDE loader; 16/20/40px dimensions verified");
+        System.out.println("PASS: 8 SVG assets rendered by target IDE loader; 16/20/40px dimensions verified");
     }
 }

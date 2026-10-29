@@ -44,6 +44,14 @@ public final class BranchPopupChecks {
         check(step.getSeparatorAbove(second) == null, "Same-kind branch does not duplicate separator");
         check(step.getSeparatorAbove(remoteChoice) != null, "Remote branch group has separator");
         check(step.getSeparatorAbove(otherChoice).getText().contains("/repository/two"), "Repository groups unambiguous");
+        boolean[] changed = {false};
+        step.addListener(() -> changed[0] = true);
+        var refreshed = new BranchCreationPopup.BranchChoice(repository, new GitLocalBranch("feature/refreshed"));
+        var replace = type.getDeclaredMethod("replaceChoices", List.class);
+        replace.setAccessible(true);
+        replace.invoke(step, List.of(refreshed));
+        check(changed[0], "Refreshing notifies the visible popup model in place");
+        check(step.getValues().equals(List.of(refreshed)), "Refresh replaces branch rows without replacing the popup");
         check(step.hasSubstep(first), "Branches expose right-side submenu");
         for (boolean click : new boolean[]{false, true}) {
             PopupStep<?> next = step.onChosen(first, click);

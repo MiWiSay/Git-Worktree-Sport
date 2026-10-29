@@ -19,7 +19,8 @@ public final class OperationWaitFeedback implements AutoCloseable {
         this.update = update;
         startedAt = clock.getAsLong();
         update.accept(0);
-        ticker = scheduler.scheduleAtFixedRate(this::tick, 1, 1, TimeUnit.SECONDS);
+        // IDE schedulers reject fixed-rate tasks: after hibernation they would try to catch up missed ticks.
+        ticker = scheduler.scheduleWithFixedDelay(this::tick, 1, 1, TimeUnit.SECONDS);
     }
 
     private synchronized void tick() {
