@@ -41,7 +41,7 @@ Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android 
 - 双击树节点只展开或折叠。右键详细信息行可仅复制对应值。
 - 展开工作区后可打开工作区项目或文件夹；当前已在 IDE 打开的工作区不重复提供“打开工作区”操作。
 - 刷新只重新读取本地 Git 元数据，不会获取远程分支或连接服务器。
-![](https://plugins.jetbrains.com/files/35384/63552-page/0b500507-9bf9-40d2-bab4-2aab46ce64fe)
+![](https://plugins.jetbrains.com/files/35384/63555-page/20b9977c-9282-4832-9ce4-ea37e3a3e79a)
 
 ### 从分支创建工作区
 
@@ -55,7 +55,8 @@ Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android 
 - **孤儿分支：**创建不继承提交历史的新分支，具体取决于本机 Git 版本。
 - **不检出文件：**高级选项，只登记工作区而不写出文件；默认关闭，孤儿分支模式下不可用。
 
-![](https://plugins.jetbrains.com/files/35384/63552-page/25349b85-8aa3-45de-b252-f15ac34b49fc)
+![](https://plugins.jetbrains.com/files/35384/63555-page/f52adb98-39a3-4051-972d-506ca260a7a5)
+![](https://plugins.jetbrains.com/files/35384/63555-page/14f98ed7-3fe1-4bd5-97f3-21128e02874d)
 创建前会检查分支冲突、失效的 Git 登记、目标路径和非空目录。对于已在其他工作区检出的分支，需要用户明确确认后才会尝试强制创建；Git 仍会判断操作是否可行。插件不会覆盖非空目录。
 
 操作期间弹窗会显示进度并禁用重复提交；成功后提供“打开项目”选项。关闭成功提示时，工作区列表会展开并以蓝色背景高亮新工作区两秒。
@@ -72,7 +73,7 @@ Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android 
 - **移动：**调用 Git 移动关联工作区并更新登记。目标路径必须不存在，父目录必须存在。
 - **删除：**通过 Git 移除关联工作区及其登记。如果存在修改或未跟踪文件，会先显示额外警告；只有明确确认后才会强制删除整个目录。
 
-![](https://plugins.jetbrains.com/files/35384/63552-page/af8c12e5-3843-4451-b9a9-a25aab7c22dd)
+![](https://plugins.jetbrains.com/files/35384/63555-page/5647a890-05f8-497f-b99c-c03117561edf)
 主工作区以及当前 IDE 会话中已作为项目打开的工作区受保护，不提供清理、移动、删除、锁定和解锁操作，底层服务也会再次校验。此保护不依赖分支名，也不会创建 Git 锁。其他已锁定的关联工作区同样不能移动或删除。
 
 ### 语言与翻译设置
@@ -80,9 +81,9 @@ Git Worktree Sport 是一个适用于 IntelliJ Platform IDE（已针对 Android 
 使用刷新按钮旁的设置按钮，可跟随 IDE 语言或选择插件语言。当前内置语言：**英语、简体中文、繁体中文、日语、韩语、德语、法语、西班牙语、巴西葡萄牙语、俄语**。
 
 翻译编辑器以表格展示内容，key 不可修改、value 可编辑，并支持 `Ctrl+F` 搜索、按 `key=value` 文本导入和导出。导入时会检查重复、未知及缺失 key。可以新增语言、修改语言名，或删除用户新增的语言；取消未保存的编辑可以整体还原本轮更改。
-![](https://plugins.jetbrains.com/files/35384/63552-page/e5fd3c0c-face-471b-a8b2-a23ed7130fec)
-![](https://plugins.jetbrains.com/files/35384/63552-page/86299f23-ce8a-47be-bcdc-d914a0b3a747)
-![](https://plugins.jetbrains.com/files/35384/63552-page/02490715-e1c6-42d5-8c51-ddcdaba95711)
+![](https://plugins.jetbrains.com/files/35384/63555-page/95b92e0c-04fc-4e54-9942-fb9528d5e586)
+![](https://plugins.jetbrains.com/files/35384/63555-page/49893930-1121-40cd-bfdd-7b5d2275302f)
+![](https://plugins.jetbrains.com/files/35384/63555-page/6eccfe7f-0071-4501-a398-be6a23d33e1e)
 
 ## 项目链接
 
