@@ -104,6 +104,9 @@ public final class CreateWorktreeFromBranchAction extends GitSingleRefAction<Git
                 (selectedPath, spec) -> create(project, repositoryRoot, branchSpec, selectedPath, spec));
         if (dialog.showAndGet()) {
             Path createdPath = Path.of(dialog.path().trim()).toAbsolutePath().normalize();
+            // The creation dialog has already closed. Refresh and select the new entry
+            // immediately so the list is current even while the success prompt is shown.
+            OpenWorktreeManagerAction.showAndReveal(project, createdPath);
             int answer = Messages.showDialog(project, I18n.format("create.success", createdPath),
                     I18n.text("title.created"),
                     new String[]{I18n.text("button.openProject"), I18n.text("button.close")},
@@ -122,79 +125,98 @@ public final class CreateWorktreeFromBranchAction extends GitSingleRefAction<Git
                     }
                 }
             }
-            OpenWorktreeManagerAction.showAndReveal(project, createdPath);
         }
     }
 
     private boolean create(Project project, Path repositoryRoot, WorktreeService.BranchSpec branchSpec,
                            String selectedPath, WorktreeService.CreateSpec spec) throws Exception {
-        List<WorktreeService.CreateIssue> issues = ModalOperation.run(project,
-                I18n.text("title.creating"), I18n.text("progress.create"),
-                () -> WorktreeService.validateCreateInputs(repositoryRoot, selectedPath, spec));
-        if (!issues.isEmpty()) throw new InputConflictException(issues);
-        Path target = Path.of(selectedPath.trim()).toAbsolutePath().normalize();
         WorktreeService.BranchSpec conflictBranch = switch (spec.mode()) {
             case EXISTING_BRANCH -> branchSpec;
             case NEW_BRANCH, ORPHAN -> new WorktreeService.BranchSpec(spec.branchName(), null, false);
             case DETACHED -> new WorktreeService.BranchSpec("(detached HEAD)", null, false);
         };
-        WorktreeService.CreateResolution resolution = chooseResolution(project, repositoryRoot, target, conflictBranch,
-                spec.mode() == WorktreeService.CreateMode.EXISTING_BRANCH,
-                spec.mode() != WorktreeService.CreateMode.DETACHED);
-        if (resolution == null) return false;
-        ModalOperation.run(project, I18n.text("title.creating"), I18n.text("progress.create"), () -> {
-            WorktreeService.create(repositoryRoot, target, branchSpec, resolution, spec);
-            return null;
-        });
-        return true;
+        // Start the modal progress task from this UI action. It runs Git work in the
+        // background while keeping the creation form open and disabled underneath.
+        // Preflight is included so a slow ref check cannot look like a frozen button.
+        CreationAttempt attempt = ModalOperation.runWithWaitingFeedback(project,
+                I18n.text("title.creating"), I18n.text("progress.create"), I18n.text("progress.create"),
+                () -> inspectAndCreate(repositoryRoot, selectedPath, branchSpec, conflictBranch, spec));
+        if (!attempt.issues().isEmpty()) throw new InputConflictException(attempt.issues());
+        if (attempt.created()) return true;
+
+        Path target = Path.of(selectedPath.trim()).toAbsolutePath().normalize();
+        WorktreeService.CreateConflict conflict = attempt.conflict();
+        boolean allowForce = spec.mode() == WorktreeService.CreateMode.EXISTING_BRANCH;
+        return switch (conflict.type()) {
+            case NONE -> throw new IllegalStateException("Creation attempt returned no result.");
+            case STALE_REGISTRATION -> {
+                String details = attempt.detail().isBlank() ? I18n.text("prune.none") : attempt.detail();
+                String message = I18n.format("create.staleRegistration", target) + "\n\n" + details;
+                if (choose(project, message,
+                        I18n.text("title.resolveStale"), I18n.text("button.cleanAndCreate"),
+                        I18n.text("button.cancel")) != 0) yield false;
+                runCreate(project, repositoryRoot, target, branchSpec,
+                        WorktreeService.CreateResolution.PRUNE_THEN_CREATE, spec);
+                yield true;
+            }
+            case ACTIVE_WORKTREE -> {
+                Messages.showWarningDialog(project,
+                        I18n.format("create.activeWorktree", conflict.entry().path()),
+                        I18n.text("title.alreadyExists"));
+                yield false;
+            }
+            case BRANCH_IN_USE -> {
+                String message = I18n.format("create.branchInUse", conflictBranch.localName(), conflict.entry().path());
+                if (!allowForce) {
+                    Messages.showWarningDialog(project, message, I18n.text("title.branchInUse"));
+                    yield false;
+                }
+                if (choose(project, message,
+                        I18n.text("title.branchInUse"), I18n.text("button.forceCreate"),
+                        I18n.text("button.cancel")) != 0) yield false;
+                runCreate(project, repositoryRoot, target, branchSpec,
+                        WorktreeService.CreateResolution.FORCE, spec);
+                yield true;
+            }
+            case NON_EMPTY_DIRECTORY -> {
+                Messages.showWarningDialog(project,
+                        I18n.format("create.nonEmptyDirectory", target), I18n.text("title.nonEmptyDirectory"));
+                yield false;
+            }
+        };
     }
 
-    private WorktreeService.CreateResolution chooseResolution(Project project, Path root, Path target,
-                                                               WorktreeService.BranchSpec branch, boolean allowForce,
-                                                               boolean checkBranchAvailability) {
-        try {
-            WorktreeService.CreateConflict conflict = ModalOperation.run(project,
-                    I18n.text("title.creating"), I18n.text("progress.create"),
-                    () -> WorktreeService.inspectCreate(root, target, branch, checkBranchAvailability));
-            return switch (conflict.type()) {
-                case NONE -> WorktreeService.CreateResolution.NORMAL;
-                case STALE_REGISTRATION -> {
-                    String preview = ModalOperation.run(project,
-                            I18n.text("title.creating"), I18n.text("progress.create"),
-                            () -> WorktreeService.prunePreview(root));
-                    String details = preview.isBlank() ? I18n.text("prune.none") : preview;
-                    String message = I18n.format("create.staleRegistration", target) + "\n\n" + details;
-                    yield choose(project, message,
-                            I18n.text("title.resolveStale"), I18n.text("button.cleanAndCreate"), I18n.text("button.cancel")) == 0
-                            ? WorktreeService.CreateResolution.PRUNE_THEN_CREATE : null;
-                }
-                case ACTIVE_WORKTREE -> {
-                    Messages.showWarningDialog(project,
-                            I18n.format("create.activeWorktree", conflict.entry().path()), I18n.text("title.alreadyExists"));
-                    yield null;
-                }
-                case BRANCH_IN_USE -> {
-                    if (!allowForce) {
-                        Messages.showWarningDialog(project,
-                                I18n.format("create.branchInUse", branch.localName(), conflict.entry().path()),
-                                I18n.text("title.branchInUse"));
-                        yield null;
-                    }
-                    yield choose(project,
-                            I18n.format("create.branchInUse", branch.localName(), conflict.entry().path()),
-                            I18n.text("title.branchInUse"), I18n.text("button.forceCreate"), I18n.text("button.cancel")) == 0
-                            ? WorktreeService.CreateResolution.FORCE : null;
-                }
-                case NON_EMPTY_DIRECTORY -> {
-                    Messages.showWarningDialog(project,
-                            I18n.format("create.nonEmptyDirectory", target), I18n.text("title.nonEmptyDirectory"));
-                    yield null;
-                }
-            };
-        } catch (Exception e) {
-            Messages.showErrorDialog(project, message(e), I18n.text("title.checkFailed"));
-            return null;
+    private CreationAttempt inspectAndCreate(Path repositoryRoot, String selectedPath,
+                                             WorktreeService.BranchSpec branchSpec,
+                                             WorktreeService.BranchSpec conflictBranch,
+                                             WorktreeService.CreateSpec spec) throws Exception {
+        List<WorktreeService.CreateIssue> issues =
+                WorktreeService.validateCreateInputs(repositoryRoot, selectedPath, spec);
+        if (!issues.isEmpty()) return new CreationAttempt(false, issues, null, "");
+
+        Path target = Path.of(selectedPath.trim()).toAbsolutePath().normalize();
+        WorktreeService.CreateConflict conflict = WorktreeService.inspectCreate(repositoryRoot, target,
+                conflictBranch, spec.mode() != WorktreeService.CreateMode.DETACHED);
+        if (conflict.type() == WorktreeService.CreateConflictType.NONE) {
+            WorktreeService.create(repositoryRoot, target, branchSpec,
+                    WorktreeService.CreateResolution.NORMAL, spec);
+            return new CreationAttempt(true, List.of(), conflict, "");
         }
+        String detail = conflict.type() == WorktreeService.CreateConflictType.STALE_REGISTRATION
+                ? WorktreeService.prunePreview(repositoryRoot) : "";
+        return new CreationAttempt(false, List.of(), conflict, detail);
+    }
+
+    private void runCreate(Project project, Path repositoryRoot, Path target,
+                           WorktreeService.BranchSpec branchSpec,
+                           WorktreeService.CreateResolution resolution,
+                           WorktreeService.CreateSpec spec) throws Exception {
+        ModalOperation.runWithWaitingFeedback(project,
+                I18n.text("title.creating"), I18n.text("progress.create"), I18n.text("progress.create"),
+                () -> {
+                    WorktreeService.create(repositoryRoot, target, branchSpec, resolution, spec);
+                    return null;
+                });
     }
 
     private int choose(Project project, String message, String title, String primary, String cancel) {
@@ -202,6 +224,8 @@ public final class CreateWorktreeFromBranchAction extends GitSingleRefAction<Git
     }
 
     private static String message(Exception e) { return e.getMessage() == null ? e.toString() : e.getMessage(); }
+
+    private static String message(Throwable e) { return e.getMessage() == null ? e.toString() : e.getMessage(); }
 
     private static final class InputConflictException extends Exception {
         private final List<WorktreeService.CreateIssue> issues;
@@ -212,6 +236,9 @@ public final class CreateWorktreeFromBranchAction extends GitSingleRefAction<Git
             this.issues = List.copyOf(issues);
         }
     }
+
+    private record CreationAttempt(boolean created, List<WorktreeService.CreateIssue> issues,
+                                   WorktreeService.CreateConflict conflict, String detail) {}
 
     private static final class PathDialog extends DialogWrapper {
         private final CreateWorktreeForm form;
@@ -257,10 +284,24 @@ public final class CreateWorktreeFromBranchAction extends GitSingleRefAction<Git
             getOKAction().setEnabled(false);
             getCancelAction().setEnabled(false);
             setOKButtonIcon(AnimatedIcon.Default.INSTANCE);
+            List<WorktreeService.CreateIssue> required = form.requiredIssues();
+            if (!required.isEmpty()) {
+                restoreSubmitControls();
+                form.markIssues(required);
+                Messages.showWarningDialog(getContentPanel(), required.stream()
+                        .map(WorktreeService.CreateIssue::message)
+                        .collect(java.util.stream.Collectors.joining("\n\n")), I18n.text("operation.failed"));
+                return;
+            }
+            String selectedPath = form.path();
+            WorktreeService.CreateSpec selectedSpec = form.spec();
             try {
-                List<WorktreeService.CreateIssue> required = form.requiredIssues();
-                if (!required.isEmpty()) throw new InputConflictException(required);
-                if (submission.submit(form.path(), form.spec())) {
+                if (submission.submit(selectedPath, selectedSpec)) {
+                    // The wait dialog has closed. Close the form only after Git returns;
+                    // its caller then refreshes the list and reveals the new entry.
+                    // DialogWrapper.doOKAction() returns early while OK is disabled for
+                    // the busy state; re-enable it immediately before the standard close.
+                    getOKAction().setEnabled(true);
                     super.doOKAction();
                     return;
                 }
@@ -275,8 +316,16 @@ public final class CreateWorktreeFromBranchAction extends GitSingleRefAction<Git
             }
         }
 
+        @Override public void doCancelAction() {
+            // Git worktree add may already have created the checkout; closing mid-operation
+            // would hide whether the worktree was registered successfully.
+            if (submitting) return;
+            super.doCancelAction();
+        }
+
         private void restoreSubmitControls() {
             submitting = false;
+            form.setBusy(false);
             setOKButtonIcon(null);
             getOKAction().setEnabled(true);
             getCancelAction().setEnabled(true);

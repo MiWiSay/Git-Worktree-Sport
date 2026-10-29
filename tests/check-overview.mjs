@@ -33,6 +33,7 @@ if (fs.existsSync(descriptionPath)) {
   assert(!/<(?:script|iframe|select|button)\b/i.test(description), 'Marketplace description uses static HTML');
   assert(!/file:|localhost|127\.0\.0\.1|C:\\|D:\\|\.\.\/|example\.invalid/.test(description), 'No machine-specific paths in listing copy');
   assert(/Parallel mode/.test(description) && /sync-git\//.test(description), 'Marketplace Overview explains the configurable parallel branch prefix');
+  assert(/checked out in multiple worktrees/i.test(description), 'Marketplace Overview explains Git branch occupancy for parallel worktrees');
 }
 if (fs.existsSync(guidePath)) {
   overviewChecksAvailable = true;
@@ -50,6 +51,7 @@ if (fs.existsSync(guidePath)) {
   }
   assert(!guide.includes('banner-candidate'), 'Unapproved AI candidate is not integrated');
   assert(/Parallel mode/.test(guide) && /sync-git\//.test(guide), 'Guide explains parallel worktree creation');
+  assert(/checked out in multiple worktrees/i.test(guide), 'Guide tells users to open the worktree path instead of switching branches');
 }
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'src/main/resources/i18n/languages.json'), 'utf8'));
 assert.equal(Object.keys(manifest).length, 11, 'Documentation pack count matches runtime catalog');

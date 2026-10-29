@@ -33,4 +33,12 @@ assert(panel.includes('!entry.detached()') && panel.includes('new GitLocalBranch
 const form = fs.readFileSync(path.join(codeRoot, 'com/miwi/gitworktree/ui/CreateWorktreeForm.java'), 'utf8');
 assert(!form.includes('I18n.text("create.mode")'), 'Removed mode heading has no UI consumer');
 assert(form.includes('startBranch.setEditable(false)'), 'Default start branch cannot be edited as arbitrary text');
-console.log('PASS: platform/Git dependency contract, no product gates, fixed-delay scheduling and cross-OS Find bindings');
+const creationAction = fs.readFileSync(path.join(codeRoot, 'com/miwi/gitworktree/actions/CreateWorktreeFromBranchAction.java'), 'utf8');
+assert(!creationAction.includes('executeOnPooledThread'), 'Creation does not start a modal progress task from a pooled caller');
+assert(creationAction.includes('() -> inspectAndCreate('), 'Creation preflight and worktree operation share the modal task');
+const modalOperation = fs.readFileSync(path.join(codeRoot, 'com/miwi/gitworktree/service/ModalOperation.java'), 'utf8');
+assert(modalOperation.includes('SwingUtilities.isEventDispatchThread()'), 'Shared modal operation enforces its UI modality contract');
+const successClose = creationAction.match(/if \(submission\.submit\(selectedPath, selectedSpec\)\) \{([\s\S]*?)\n\s*\}/)?.[1] ?? '';
+assert(successClose.includes('getOKAction().setEnabled(true)') && successClose.includes('super.doOKAction()'),
+    'Successful creation re-enables OK before invoking DialogWrapper close behavior');
+console.log('PASS: platform/Git dependency, no product gates, fixed-delay scheduling, Find bindings and modal creation flow');

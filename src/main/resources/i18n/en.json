@@ -213,5 +213,5 @@
   "settings.parallelBranchPrefix": "New branch prefix:",
   "settings.parallelBranchPrefixHint": "Used only for newly created branches. Changing this value does not rename existing branches; leave it empty to disable the prefix.",
   "create.parallelMode": "Parallel mode",
-  "create.parallelModeHint": "Creates a separate branch under this prefix. Open the new worktree path in its own IDE or AI session; commit normally, then merge or cherry-pick the work later."
+  "create.parallelModeHint": "Git prevents switching to a branch already checked out in another worktree. Open this worktree path directly in the parallel IDE or AI session; commit, merge, or cherry-pick as usual."
 }

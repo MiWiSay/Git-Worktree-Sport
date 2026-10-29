@@ -213,5 +213,5 @@
   "settings.parallelBranchPrefix": "新分支前缀：",
   "settings.parallelBranchPrefixHint": "仅用于之后新创建的分支。修改此项不会重命名已有分支；留空可关闭前缀。",
   "create.parallelMode": "并行模式",
-  "create.parallelModeHint": "在此前缀下创建独立分支。请在单独的 IDE 或 AI 会话中直接打开新工作区路径；代码可正常提交，之后再合并或拣选提交。"
+  "create.parallelModeHint": "Git 不允许在多个工作区同时检出同一分支。请让并行的 IDE 或 AI 会话直接打开这个工作区路径，不要从其他工作区使用“切换分支”；提交后可正常合并或拣选提交。"
 }

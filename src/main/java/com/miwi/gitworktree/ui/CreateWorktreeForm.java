@@ -39,6 +39,7 @@ public final class CreateWorktreeForm extends JPanel {
     private final EnumMap<CreateField, JComponent> inputs = new EnumMap<>(CreateField.class);
     private final EnumMap<CreateField, Border> originalBorders = new EnumMap<>(CreateField.class);
     private final Map<Component, Boolean> enabledBeforeBusy = new IdentityHashMap<>();
+    private final List<Component> busyComponents = new ArrayList<>();
     private final JPanel referencePanel = new JPanel(new BorderLayout(6, 4));
     private final JPanel referenceOptions = new JPanel(new BorderLayout(6, 4));
     private final JLabel branchLabel = new JLabel(I18n.text("create.branchName"));
@@ -198,13 +199,21 @@ public final class CreateWorktreeForm extends JPanel {
             disableInteractiveControls(this);
             return;
         }
-        enabledBeforeBusy.forEach(Component::setEnabled);
+        // Restore child controls before their parent. Swing combo boxes can
+        // reset their renderer button when the parent is enabled again.
+        for (int index = busyComponents.size() - 1; index >= 0; index--) {
+            Component component = busyComponents.get(index);
+            Boolean enabled = enabledBeforeBusy.get(component);
+            if (enabled != null) component.setEnabled(enabled);
+        }
         enabledBeforeBusy.clear();
+        busyComponents.clear();
     }
 
     private void disableInteractiveControls(Component component) {
         if (component instanceof AbstractButton || component instanceof JComboBox<?> || component instanceof JTextComponent) {
             enabledBeforeBusy.put(component, component.isEnabled());
+            busyComponents.add(component);
             component.setEnabled(false);
         }
         if (component instanceof Container container) {

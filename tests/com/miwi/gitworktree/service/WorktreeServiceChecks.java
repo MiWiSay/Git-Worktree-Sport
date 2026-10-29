@@ -59,6 +59,12 @@ public final class WorktreeServiceChecks {
         check(!WorktreeService.validateCreateInputs(root, candidatePath.toString(),
                 new WorktreeService.CreateSpec(WorktreeService.CreateMode.NEW_BRANCH, "main/child", "HEAD", false)).isEmpty(),
                 "Child ref namespace collision detected");
+        git("branch", "sync-git/feature/already-exists");
+        var parallelDuplicateIssues = WorktreeService.validateCreateInputs(root, candidatePath.toString(),
+                new WorktreeService.CreateSpec(WorktreeService.CreateMode.NEW_BRANCH,
+                        "sync-git/feature/already-exists", "HEAD", false));
+        check(parallelDuplicateIssues.stream().anyMatch(issue -> issue.field() == WorktreeService.CreateField.BRANCH),
+                "Duplicate generated parallel branch name is rejected before worktree creation");
         check(WorktreeService.validateCreateInputs(root, base.resolve("absent-parent/child").toString(), candidate)
                         .getFirst().field() == WorktreeService.CreateField.PATH, "Missing target parent rejected");
         check(WorktreeService.validateCreateInputs(root, root.resolve("tracked.txt").toString(), candidate)

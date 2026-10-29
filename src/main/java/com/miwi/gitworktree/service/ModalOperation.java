@@ -7,6 +7,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.util.concurrency.AppExecutorUtil;
 import com.miwi.gitworktree.ui.I18n;
 
+import javax.swing.SwingUtilities;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -24,6 +25,10 @@ public final class ModalOperation {
 
     private static <T> T run(Project project, String title, String description,
                              String waitingDescription, Callable<T> operation) throws Exception {
+        // A modal task must inherit the active UI modality; its work still runs off the EDT.
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("Modal operations must be started from the UI thread.");
+        }
         AtomicReference<T> result = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
         // Git removal is not transactional: cancellation can leave partially deleted files or metadata.
