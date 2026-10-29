@@ -62,14 +62,38 @@ public final class RegressionChecks {
         var legacyNames = new java.util.LinkedHashMap<String, String>();
         legacyNames.put(first.id(), "User-renamed baseline");
         legacyNames.put(second.id(), second.displayName());
+        legacyNames.put("zh-TW", "繁體中文");
+        legacyNames.put("ja", "日本語（自訂名稱）");
         Files.writeString(namesFile, FlatJson.write(legacyNames));
         LanguageCatalog upgraded = LanguageCatalog.load();
-        equal(upgraded.names().size(), packagedNames.size(), "Upgrades append newly bundled languages");
+        equal(upgraded.names().size(), packagedNames.size(), "Upgrades add newly bundled languages");
         equal(upgraded.languageName(first.id()), "User-renamed baseline", "Upgrade preserves renamed languages");
+        equal(upgraded.languageName("zh-TW"), "繁體（中國台灣地區）", "Upgrade migrates the old Traditional Chinese default name");
+        equal(upgraded.languageName("ja"), "日本語（自訂名稱）", "Upgrade preserves customized language names");
+        List<String> upgradedOrder = new java.util.ArrayList<>(upgraded.names().keySet());
+        check(upgradedOrder.indexOf("zh-HK") < upgradedOrder.indexOf("zh-TW"),
+                "New Hong Kong pack is inserted before the existing Taiwan pack");
         equal(LanguageCatalog.load().names(), upgraded.names(), "Language upgrade is idempotent");
+        var previouslyAppendedNames = new java.util.LinkedHashMap<>(packagedNames);
+        String hongKongName = previouslyAppendedNames.remove("zh-HK");
+        previouslyAppendedNames.put("zh-HK", hongKongName);
+        Files.writeString(namesFile, FlatJson.write(previouslyAppendedNames));
+        LanguageCatalog reordered = LanguageCatalog.load();
+        List<String> reorderedIds = new java.util.ArrayList<>(reordered.names().keySet());
+        check(reorderedIds.indexOf("zh-HK") < reorderedIds.indexOf("zh-TW"),
+                "Previously appended Hong Kong pack is moved above Taiwan on upgrade");
         Files.writeString(namesFile, FlatJson.write(packagedNames));
+        equal(catalog.languageName("zh-TW"), "繁體（中國台灣地區）", "Taiwan Traditional Chinese display name is explicit");
+        equal(catalog.languageName("zh-HK"), "繁體（中國香港地區）", "Hong Kong Traditional Chinese display name is explicit");
+        List<String> bundledOrder = builtIns.stream().map(LanguageCatalog.Option::id).toList();
+        check(bundledOrder.indexOf("zh-HK") < bundledOrder.indexOf("zh-TW"),
+                "Hong Kong Traditional Chinese option is listed before Taiwan");
         equal(catalog.languageForLocale(Locale.forLanguageTag("zh-TW")).id(), "zh-TW",
                 "Traditional Chinese country selection does not fall back to simplified");
+        equal(catalog.languageForLocale(Locale.forLanguageTag("zh-Hant-HK")).id(), "zh-HK",
+                "Hong Kong Traditional Chinese locale selects its own pack");
+        equal(catalog.languageForLocale(Locale.forLanguageTag("zh-HK")).id(), "zh-HK",
+                "Hong Kong locale without an explicit script selects its own pack");
         equal(catalog.languageForLocale(Locale.forLanguageTag("zh-Hant")).id(), "zh-TW",
                 "Traditional Chinese script selection resolves the configured pack");
         equal(catalog.languageForLocale(Locale.forLanguageTag("pt-PT")).id(), "pt-BR",

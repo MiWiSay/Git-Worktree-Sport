@@ -59,15 +59,21 @@ final class LanguageCatalog {
 
             LinkedHashMap<String, String> names = new LinkedHashMap<>(FlatJson.parse(Files.readString(languageList)));
             if (names.isEmpty()) throw new IllegalStateException("Language list must not be empty.");
-            // 升级时追加新增内置语言，但保留用户的语言名称、顺序和自定义翻译。
-            boolean addedLanguages = false;
+            // 升级时补入新增内置语言；港澳台区域包按指定顺序排列，其余用户顺序保持不变。
+            boolean languageCatalogChanged = false;
             for (Map.Entry<String, String> entry : bundledNames.entrySet()) {
                 if (!names.containsKey(entry.getKey())) {
                     names.put(entry.getKey(), entry.getValue());
-                    addedLanguages = true;
+                    languageCatalogChanged = true;
+                } else if (entry.getKey().equals("zh-TW")
+                        && names.get(entry.getKey()).equals("繁體中文")) {
+                    // Migrate only the previous bundled default; preserve names users have customized.
+                    names.put(entry.getKey(), entry.getValue());
+                    languageCatalogChanged = true;
                 }
             }
-            if (addedLanguages) writeAtomically(languageList, FlatJson.write(names));
+            if (moveLanguageBefore(names, "zh-HK", "zh-TW")) languageCatalogChanged = true;
+            if (languageCatalogChanged) writeAtomically(languageList, FlatJson.write(names));
             LinkedHashMap<String, Map<String, String>> files = new LinkedHashMap<>();
             for (Map.Entry<String, String> entry : names.entrySet()) {
                 String id = entry.getKey();
@@ -147,6 +153,12 @@ final class LanguageCatalog {
                     scriptMatch = option;
                 }
             }
+        }
+        if (scriptMatch != null && locale.getLanguage().equalsIgnoreCase("zh")
+                && locale.getScript().equalsIgnoreCase("Hant") && locale.getCountry().isEmpty()
+                && names.containsKey("zh-TW")) {
+            // Keep the established regionless Traditional Chinese fallback independent of menu ordering.
+            return option("zh-TW");
         }
         Option selected = scriptMatch != null ? scriptMatch : countryMatch != null ? countryMatch
                 : genericMatch != null ? genericMatch : languageMatch;
@@ -279,6 +291,23 @@ final class LanguageCatalog {
     }
 
     private String localeTag(String id) { return languageFiles.getOrDefault(id, Map.of()).get(LOCALE_FIELD); }
+
+    private static boolean moveLanguageBefore(LinkedHashMap<String, String> names, String id, String beforeId) {
+        if (!names.containsKey(id) || !names.containsKey(beforeId)) return false;
+        List<String> order = new ArrayList<>(names.keySet());
+        if (order.indexOf(id) < order.indexOf(beforeId)) return false;
+
+        LinkedHashMap<String, String> reordered = new LinkedHashMap<>();
+        String movedName = names.get(id);
+        for (Map.Entry<String, String> entry : names.entrySet()) {
+            if (entry.getKey().equals(id)) continue;
+            if (entry.getKey().equals(beforeId)) reordered.put(id, movedName);
+            reordered.put(entry.getKey(), entry.getValue());
+        }
+        names.clear();
+        names.putAll(reordered);
+        return true;
+    }
 
     private void persistNames() throws IOException {
         writeAtomically(languageDirectory.resolve(LANGUAGE_LIST_FILE), FlatJson.write(names));

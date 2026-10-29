@@ -52,7 +52,7 @@ if (fs.existsSync(guidePath)) {
   assert(/Parallel mode/.test(guide) && /sync-git\//.test(guide), 'Guide explains parallel worktree creation');
 }
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'src/main/resources/i18n/languages.json'), 'utf8'));
-assert.equal(Object.keys(manifest).length, 10, 'Documentation pack count matches runtime catalog');
+assert.equal(Object.keys(manifest).length, 11, 'Documentation pack count matches runtime catalog');
 console.log(overviewChecksAvailable
   ? 'PASS: plugin descriptor, English Overview sources, seven portable screenshots, approved banner, navigation and language count'
   : 'PASS: plugin descriptor and language count; local-only Overview sources are absent and their checks were skipped');
